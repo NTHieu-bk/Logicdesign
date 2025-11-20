@@ -1,5 +1,7 @@
 #include "task_webserver.h"
-
+#include "global.h"           
+#include <ArduinoJson.h>      
+#include "task_handler.h"
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
@@ -31,13 +33,17 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     else if (type == WS_EVT_DATA)
     {
         AwsFrameInfo *info = (AwsFrameInfo *)arg;
-
+        
+        // Chỉ xử lý tin nhắn dạng văn bản (Text)
         if (info->opcode == WS_TEXT)
         {
-            String message;
-            message += String((char *)data).substring(0, len);
-            // parseJson(message, true);
-            handleWebSocketMessage(message);
+            String message = "";
+            if (len > 0) {
+                message = String((char *)data).substring(0, len);
+            }
+
+            // Truyền biến 'ws' đi để bên kia có thể gửi phản hồi nếu cần
+            handleWebSocketMessage(message, ws);
         }
     }
 }
@@ -55,6 +61,7 @@ void connnectWSV()
     server.begin();
     ElegantOTA.begin(&server);
     webserver_isrunning = true;
+    Serial.println("Webserver Started!");
 }
 
 void Webserver_stop()
@@ -62,6 +69,7 @@ void Webserver_stop()
     ws.closeAll();
     server.end();
     webserver_isrunning = false;
+    Serial.println("Webserver Stopped!");
 }
 
 void Webserver_reconnect()

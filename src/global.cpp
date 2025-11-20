@@ -3,6 +3,17 @@ float glob_temperature = 0;
 float glob_humidity = 0;
 
 SemaphoreHandle_t xDataMutex;
+SemaphoreHandle_t xBlinkyControlMutex;
+bool glob_blinky_is_overridden = false;
+bool glob_blinky_override_state = false;
+
+SemaphoreHandle_t xNeoControlMutex;
+bool glob_neo_is_overridden = false;
+bool glob_neo_override_state = false;
+volatile unsigned long glob_last_interaction_time = 0;
+String glob_lcd_msg_line1 = "";
+String glob_lcd_msg_line2 = "";
+
 String WIFI_SSID;
 String WIFI_PASS;
 String CORE_IOT_TOKEN;

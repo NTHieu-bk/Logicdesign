@@ -1,61 +1,83 @@
-#include <task_handler.h>
-
-void handleWebSocketMessage(String message)
-{
-    Serial.println(message);
-    StaticJsonDocument<256> doc;
-
+#include "task_handler.h"
+#include "global.h"          
+#include <ArduinoJson.h>     
+#include "task_check_info.h"  
+#include <String.h>
+#include "led_blinky.h"
+#include "neo_blinky.h"
+void handleWebSocketMessage(String message, AsyncWebSocket &ws) {
+    // Tạo vùng nhớ JSON 
+    DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, message);
-    if (error)
-    {
-        Serial.println("❌ Lỗi parse JSON!");
+
+    if (error) {
+        Serial.print(F("❌ Lỗi parse JSON: "));
+        Serial.println(error.c_str());
         return;
     }
-    JsonObject value = doc["value"];
-    if (doc["page"] == "device")
-    {
-        if (!value.containsKey("gpio") || !value.containsKey("status"))
-        {
-            Serial.println("⚠️ JSON thiếu thông tin gpio hoặc status");
-            return;
-        }
 
-        int gpio = value["gpio"];
-        String status = value["status"].as<String>();
+    // Lấy tên trang (device hay setting)
+    String page = doc["page"].as<String>();
 
-        Serial.printf("⚙️ Điều khiển GPIO %d → %s\n", gpio, status.c_str());
-        pinMode(gpio, OUTPUT);
-        if (status.equalsIgnoreCase("ON"))
-        {
-            digitalWrite(gpio, HIGH);
-            Serial.printf("🔆 GPIO %d ON\n", gpio);
+
+    // TRƯỜNG HỢP 1: ĐIỀU KHIỂN THIẾT BỊ (TASK 4)
+    if (page == "device") {
+        int gpio = doc["value"]["gpio"].as<int>();
+        bool is_on = doc["value"]["status"].as<String>().equalsIgnoreCase("ON");
+        glob_last_interaction_time = millis();
+        String statusStr = is_on ? "ON " : "OFF";
+        Serial.printf("⚙️ WEB CONTROL: GPIO %d -> %s\n", gpio, is_on ? "ON" : "OFF");
+
+        // --- LED BLINKY (GPIO 48) ---
+        if (gpio == LED_GPIO) { 
+            // "Xin chìa khóa" Mutex để ghi đè an toàn
+            if (xSemaphoreTake(xBlinkyControlMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                glob_lcd_msg_line1 = "LED Blinky:";
+                glob_lcd_msg_line2 = statusStr + " (WEB)";
+                xSemaphoreGive(xBlinkyControlMutex);    // Trả chìa khóa
+                Serial.println("   -> Đã ghi đè Led Blinky");
+            } else {
+                Serial.println("   -> Lỗi: Không lấy được Mutex Blinky!");
+            }
         }
-        else if (status.equalsIgnoreCase("OFF"))
-        {
-            digitalWrite(gpio, LOW);
-            Serial.printf("💤 GPIO %d OFF\n", gpio);
+        
+        // --- NEOPIXEL (GPIO 45) ---
+        else if (gpio == NEO_PIN) {
+            if (xSemaphoreTake(xNeoControlMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                glob_lcd_msg_line1 = "NeoPixel:";
+                glob_lcd_msg_line2 = statusStr + " (WEB)";
+                xSemaphoreGive(xNeoControlMutex);
+                Serial.println("   -> Đã ghi đè Led NeoPixel");
+            } else {
+                Serial.println("   -> Lỗi: Không lấy được Mutex NeoPixel!");
+            }
+        }
+        
+        // --- THIẾT BỊ KHÁC (Relay thường - Điều khiển trực tiếp) ---
+        else {
+            pinMode(gpio, OUTPUT);
+            digitalWrite(gpio, is_on ? HIGH : LOW);
+            glob_lcd_msg_line1 = "GPIO " + String(gpio) + ":";
+            glob_lcd_msg_line2 = statusStr + " (MANUAL)";
+            Serial.println("   -> Điều khiển GPIO trực tiếp (Non-RTOS)");
         }
     }
-    else if (doc["page"] == "setting")
-    {
-        String WIFI_SSID = doc["value"]["ssid"].as<String>();
-        String WIFI_PASS = doc["value"]["password"].as<String>();
-        String CORE_IOT_TOKEN = doc["value"]["token"].as<String>();
-        String CORE_IOT_SERVER = doc["value"]["server"].as<String>();
-        String CORE_IOT_PORT = doc["value"]["port"].as<String>();
+    
+    // TRƯỜNG HỢP 2: LƯU CÀI ĐẶT WI-FI
+    else if (page == "setting") {
+        String ssid = doc["value"]["ssid"].as<String>();
+        String pass = doc["value"]["password"].as<String>();
+        String token = doc["value"]["token"].as<String>();
+        String server = doc["value"]["server"].as<String>();
+        String port = doc["value"]["port"].as<String>();
 
-        Serial.println("📥 Nhận cấu hình từ WebSocket:");
-        Serial.println("SSID: " + WIFI_SSID);
-        Serial.println("PASS: " + WIFI_PASS);
-        Serial.println("TOKEN: " + CORE_IOT_TOKEN);
-        Serial.println("SERVER: " + CORE_IOT_SERVER);
-        Serial.println("PORT: " + CORE_IOT_PORT);
+        Serial.println("📥 Nhận cấu hình mới từ Web. Đang lưu...");
+        
+        // Gọi hàm lưu file (Hàm này nằm bên task_check_info.h)
+        // Lưu ý: Hàm này sẽ tự gọi ESP.restart() sau khi lưu xong
+        Save_info_File(ssid, pass, token, server, port);
 
-        // 👉 Gọi hàm lưu cấu hình
-        Save_info_File(WIFI_SSID, WIFI_PASS, CORE_IOT_TOKEN, CORE_IOT_SERVER, CORE_IOT_PORT);
-
-        // Phản hồi lại client (tùy chọn)
-        String msg = "{\"status\":\"ok\",\"page\":\"setting_saved\"}";
-        ws.textAll(msg);
+        // Gửi phản hồi lại cho Web (Nếu kịp trước khi reset)
+        ws.textAll("{\"status\":\"ok\",\"page\":\"setting_saved\"}");
     }
 }

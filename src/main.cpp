@@ -19,6 +19,8 @@ void setup()
   Serial.begin(115200);
   check_info_File(0);
   xDataMutex = xSemaphoreCreateMutex();
+  xBlinkyControlMutex = xSemaphoreCreateMutex();
+  xNeoControlMutex = xSemaphoreCreateMutex();
   xTaskCreate(led_blinky, "Task LED Blink", 2048, NULL, 2, NULL);
   xTaskCreate(neo_blinky, "Task NEO Blink", 2048, NULL, 2, NULL);
   xTaskCreate(temp_humi_monitor, "Task TEMP HUMI Monitor", 2048, NULL, 2, NULL);

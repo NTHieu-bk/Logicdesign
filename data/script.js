@@ -15,8 +15,8 @@ window.addEventListener('load', onLoad);
 
 function onLoad(event) {
     initWebSocket();
-    initGauges();  // Khởi tạo đồng hồ
-    initChart();   // Khởi tạo biểu đồ
+    //initGauges();  // Khởi tạo đồng hồ
+    //initChart();   // Khởi tạo biểu đồ
     
     const savedTheme = localStorage.getItem('theme') || 'light';
     applyTheme(savedTheme);
@@ -36,13 +36,10 @@ function onLoad(event) {
 
     // Nếu relayList rỗng (chưa có thiết bị nào), thêm 2 thiết bị cố định
     if (relayList.length === 0) {
-        // ⚠️ CẦN THAY THẾ 'gpio: 2' và 'gpio: 4' bằng chân GPIO THỰC TẾ của bạn
         relayList = [
-            // id: 1000 và 1001 để tránh trùng ID với thiết bị thêm thủ công sau này (dùng Date.now())
-            { id: 1000, name: "LED Blinky (Task 1)", gpio: 2, state: false }, 
-            { id: 1001, name: "NeoPixel (Task 2)", gpio: 4, state: false }  
+            { id: 1000, name: "LED Blinky (Task 1)", gpio: 48, state: true }, 
+            { id: 1001, name: "NeoPixel (Task 2)", gpio: 45, state: true }  
         ];
-        // Lưu lại vào bộ nhớ trình duyệt
         localStorage.setItem('myRelays', JSON.stringify(relayList));
     }
     
@@ -82,7 +79,7 @@ function Send_Data(data) {
 }
 
 function onMessage(event) {
-    // console.log("📩 Nhận:", event.data);
+     console.log("📩 Nhận:", event.data);
     try {
         var msg = JSON.parse(event.data);
 
@@ -199,30 +196,34 @@ function updateDashboard(tempC, hum) {
         rawTemp = (tempC * 1.8) + 32;
     }
 
-    // 2. 🔥 QUAN TRỌNG: LÀM TRÒN SỐ (Fix lỗi 3 chữ số thập phân)
-    // .toFixed(1) cắt bớt số lẻ, parseFloat chuyển nó ngược lại thành số để vẽ biểu đồ
     let displayTemp = parseFloat(rawTemp.toFixed(1)); 
     let displayHum = parseFloat(hum.toFixed(1));
 
-    // 3. Cập nhật Đồng hồ (Dùng số đã làm tròn)
-    gTemp.refresh(displayTemp);
-    gHumi.refresh(displayHum);
-
-    // 4. Cập nhật Biểu đồ (Dùng số ĐÃ LÀM TRÒN)
-    const now = new Date().toLocaleTimeString();
-    chart.data.labels.push(now);
+    // --- 🛡️ THÊM KIỂM TRA AN TOÀN (FIX LỖI CRASH) ---
     
-    // Đẩy số gọn gàng vào biểu đồ
-    chart.data.datasets[0].data.push(displayTemp); 
-    chart.data.datasets[1].data.push(displayHum);
-
-    // Giới hạn 20 điểm dữ liệu để tránh lag
-    if (chart.data.labels.length > 20) {
-        chart.data.labels.shift();
-        chart.data.datasets.forEach(ds => ds.data.shift());
+    // Chỉ cập nhật Đồng hồ nếu biến gTemp và gHumi ĐÃ TỒN TẠI
+    if (typeof gTemp !== 'undefined' && typeof gHumi !== 'undefined' && gTemp && gHumi) {
+        try {
+            gTemp.refresh(displayTemp);
+            gHumi.refresh(displayHum);
+        } catch (e) { console.warn("Lỗi update Gauge:", e); }
     }
-    
-    chart.update('none');
+
+    // Chỉ cập nhật Biểu đồ nếu biến chart ĐÃ TỒN TẠI
+    if (typeof chart !== 'undefined' && chart) {
+        try {
+            const now = new Date().toLocaleTimeString();
+            chart.data.labels.push(now);
+            chart.data.datasets[0].data.push(displayTemp); 
+            chart.data.datasets[1].data.push(displayHum);
+
+            if (chart.data.labels.length > 20) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach(ds => ds.data.shift());
+            }
+            chart.update('none');
+        } catch (e) { console.warn("Lỗi update Chart:", e); }
+    }
 }
 
 // ==================== 5. CHỨC NĂNG ĐIỀU KHIỂN ====================
@@ -464,6 +465,7 @@ document.getElementById("settingsForm").addEventListener("submit", function (e) 
     Send_Data(settingsJSON);
     alert("✅ Đã gửi cấu hình xuống thiết bị!");
 });
+/*
 // ==================== CHẾ ĐỘ TEST (SIMULATION) ====================
 let simInterval = null;
 
@@ -497,3 +499,4 @@ function toggleSimulation() {
         }, 2000); // Cập nhật mỗi 2 giây
     }
 }
+    */
