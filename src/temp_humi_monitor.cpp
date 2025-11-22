@@ -35,66 +35,70 @@ void temp_humi_monitor(void *pvParameters) {
     dht20.begin();
     lcd.begin();
     lcd.backlight();
-
+    static unsigned long last_sensor_read = 0;
     while (1) {
-        // 1. LUÔN ĐỌC CẢM BIẾN
-        if (dht20.read() == DHT20_OK) {
-            if (xSemaphoreTake(xDataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-                glob_temperature = dht20.getTemperature();
-                glob_humidity = dht20.getHumidity();
-                xSemaphoreGive(xDataMutex);
+        // ĐỌC CẢM BIẾN
+        if (millis() - last_sensor_read > 2000) {
+            if (dht20.read() == DHT20_OK) {
+                if (xSemaphoreTake(xDataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                    glob_temperature = dht20.getTemperature();
+                    glob_humidity = dht20.getHumidity();
+                    xSemaphoreGive(xDataMutex);
+                }
             }
+            last_sensor_read = millis();
         }
 
-        // 2. LOGIC HIỂN THỊ
-        // Ý 4: Thời gian hiện thông báo điều khiển ngắn thôi (500ms)
-        if (millis() - glob_last_interaction_time < 500) {
+        // HIỂN THỊ
+        unsigned long current_time = millis();
+        if (current_time - glob_last_interaction_time < 600) { 
             
-            // ---> HIỂN THỊ CỤ THỂ THIẾT BỊ VỪA BẤM <---
             lcd.clear();
             lcd.setCursor(0, 0);
             lcd.print(glob_lcd_msg_line1); // Ví dụ: "LED Blinky:"
             
             lcd.setCursor(0, 1);
-            lcd.print(glob_lcd_msg_line2); // Ví dụ: "OFF (WEB)"
+            lcd.print(glob_lcd_msg_line2); // Ví dụ: "ON (WEB)"
             
-            // Chỉ delay ngắn đúng bằng thời gian còn lại
-            vTaskDelay(pdMS_TO_TICKS(100)); 
+            // QUAN TRỌNG: Delay cứng 500ms để giữ dòng chữ này trên màn hình
+            // Sau 500ms này, vòng lặp quay lại thì (time - last) đã > 600 -> Tự nhảy xuống else
+            vTaskDelay(pdMS_TO_TICKS(500)); 
 
-        } else {
+        } 
+        // --- ƯU TIÊN 2: HIỂN THỊ NHIỆT ĐỘ / ĐỘ ẨM (Mặc định) ---
+        else {
             
-            // ---> HIỂN THỊ MÔI TRƯỜNG (Mặc định) <---
             float t = glob_temperature;
             float h = glob_humidity;
             String stT = getStatus_Temp(t);
             String stH = getStatus_Humi(h);
 
-            lcd.clear(); // Xóa sạch để tránh lỗi hiển thị
+            lcd.clear(); 
 
-            // Dòng 0: Nhiệt độ + Trạng thái (Ý 3: Đã thêm lại chữ NORM)
+            // Dòng 0: Nhiệt độ
             lcd.setCursor(0, 0);
             lcd.print("T:"); lcd.print(t, 1); lcd.print("C ");
-            lcd.print(stT); // Hiện: NORM, WARN, CRIT
+            lcd.print(stT); 
 
-            // Dòng 1: Độ ẩm + Trạng thái
+            // Dòng 1: Độ ẩm
             lcd.setCursor(0, 1);
             lcd.print("H:"); lcd.print(h, 1); lcd.print("% ");
             lcd.print(stH);
 
-            // Ý 1: Logic nháy đèn nền khi CRIT
+            // Logic nháy đèn nền khi CRIT
             if (stT == "CRIT" || stH == "CRIT") {
-                // Nháy nhanh 2 lần rồi cập nhật lại
-                for(int i=0; i<2; i++) {
-                    lcd.noBacklight(); vTaskDelay(pdMS_TO_TICKS(250));
-                    lcd.backlight();   vTaskDelay(pdMS_TO_TICKS(250));
+                // Nháy cảnh báo (Chu kỳ ngắn hơn để phản hồi nhanh)
+                for(int i=0; i<4; i++) { // Nháy 4 lần nhanh (tổng ~1 giây)
+                    lcd.noBacklight(); vTaskDelay(pdMS_TO_TICKS(150));
+                    lcd.backlight();   vTaskDelay(pdMS_TO_TICKS(150));
                     
-                    // Kiểm tra ngắt: Nếu có người bấm nút lúc đang nháy thì thoát ngay
-                    if (millis() - glob_last_interaction_time < 500) break;
+                    // Kiểm tra ngắt ngay lập tức nếu có lệnh Web chen ngang
+                    if (millis() - glob_last_interaction_time < 600) break;
                 }
             } else {
-                // Nếu bình thường, chỉ cần delay 1 giây chờ lần cập nhật sau
-                lcd.backlight(); // Đảm bảo đèn luôn sáng
-                vTaskDelay(pdMS_TO_TICKS(1000));
+                // Trạng thái bình thường: Delay 2 giây
+                lcd.backlight(); 
+                vTaskDelay(pdMS_TO_TICKS(2000));
             }
         }
     }

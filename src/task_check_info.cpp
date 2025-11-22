@@ -80,3 +80,20 @@ bool check_info_File(bool check)
   }
   return true;
 }
+
+void Clear_info_File()
+{
+  // Đảm bảo đã mount LittleFS
+  if (!LittleFS.begin(true)) {
+    Serial.println("⚠️ Clear_info_File: Mount LittleFS thất bại");
+  }
+
+  if (LittleFS.exists("/info.dat")) {
+    LittleFS.remove("/info.dat");
+    Serial.println("🗑 Đã xóa file /info.dat (quên cấu hình Wi-Fi)");
+  }
+
+  // Xóa luôn biến cấu hình trong RAM (nếu có dùng)
+  WIFI_SSID  = "";
+  WIFI_PASS  = "";
+}

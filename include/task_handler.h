@@ -4,6 +4,6 @@
 
 #include <ArduinoJson.h>
 #include <task_check_info.h>
-
-extern void handleWebSocketMessage(String message);
+#include <ESPAsyncWebServer.h>
+extern void handleWebSocketMessage(String message, AsyncWebSocket &ws);
 #endif

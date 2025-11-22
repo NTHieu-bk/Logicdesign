@@ -5,6 +5,7 @@
 #include <String.h>
 #include "led_blinky.h"
 #include "neo_blinky.h"
+#include <WiFi.h>
 void handleWebSocketMessage(String message, AsyncWebSocket &ws) {
     // Tạo vùng nhớ JSON 
     DynamicJsonDocument doc(1024);
@@ -30,28 +31,53 @@ void handleWebSocketMessage(String message, AsyncWebSocket &ws) {
 
         // --- LED BLINKY (GPIO 48) ---
         if (gpio == LED_GPIO) { 
-            // "Xin chìa khóa" Mutex để ghi đè an toàn
-            if (xSemaphoreTake(xBlinkyControlMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        if (xSemaphoreTake(xBlinkyControlMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            
+            if (is_on) {
+                // TRƯỜNG HỢP BẬT: Trả về chế độ TỰ ĐỘNG (AUTO)
+                glob_blinky_is_overridden = false; // <--- QUAN TRỌNG: Bỏ ghi đè
+                
                 glob_lcd_msg_line1 = "LED Blinky:";
-                glob_lcd_msg_line2 = statusStr + " (WEB)";
-                xSemaphoreGive(xBlinkyControlMutex);    // Trả chìa khóa
-                Serial.println("   -> Đã ghi đè Led Blinky");
+                glob_lcd_msg_line2 = "Mode: AUTO"; // Hiển thị LCD là Auto
+                Serial.println("   -> LED Blinky: Chuyển sang AUTO Mode");
             } else {
-                Serial.println("   -> Lỗi: Không lấy được Mutex Blinky!");
+                // TRƯỜNG HỢP TẮT: Cưỡng chế TẮT (MANUAL OFF)
+                glob_blinky_is_overridden = true;  // Bật chế độ ghi đè
+                glob_blinky_override_state = false; // Gán trạng thái TẮT
+                
+                glob_lcd_msg_line1 = "LED Blinky:";
+                glob_lcd_msg_line2 = "Mode: OFF (WEB)";
+                Serial.println("   -> LED Blinky: Cưỡng chế TẮT");
             }
+
+            xSemaphoreGive(xBlinkyControlMutex);
         }
-        
-        // --- NEOPIXEL (GPIO 45) ---
-        else if (gpio == NEO_PIN) {
-            if (xSemaphoreTake(xNeoControlMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+    }
+    
+    // --- NEOPIXEL (GPIO 45) ---
+    else if (gpio == NEO_PIN) {
+        if (xSemaphoreTake(xNeoControlMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            
+            if (is_on) {
+                // TRƯỜNG HỢP BẬT: Trả về chế độ TỰ ĐỘNG (AUTO)
+                glob_neo_is_overridden = false; // <--- QUAN TRỌNG: Bỏ ghi đè
+                
                 glob_lcd_msg_line1 = "NeoPixel:";
-                glob_lcd_msg_line2 = statusStr + " (WEB)";
-                xSemaphoreGive(xNeoControlMutex);
-                Serial.println("   -> Đã ghi đè Led NeoPixel");
+                glob_lcd_msg_line2 = "Mode: AUTO";
+                Serial.println("   -> NeoPixel: Chuyển sang AUTO Mode");
             } else {
-                Serial.println("   -> Lỗi: Không lấy được Mutex NeoPixel!");
+                // TRƯỜNG HỢP TẮT: Cưỡng chế TẮT (MANUAL OFF)
+                glob_neo_is_overridden = true;   // Bật chế độ ghi đè
+                glob_neo_override_state = false; // Gán trạng thái TẮT (Đen)
+                
+                glob_lcd_msg_line1 = "NeoPixel:";
+                glob_lcd_msg_line2 = "Mode: OFF (WEB)";
+                Serial.println("   -> NeoPixel: Cưỡng chế TẮT");
             }
+
+            xSemaphoreGive(xNeoControlMutex);
         }
+    }
         
         // --- THIẾT BỊ KHÁC (Relay thường - Điều khiển trực tiếp) ---
         else {
@@ -79,5 +105,54 @@ void handleWebSocketMessage(String message, AsyncWebSocket &ws) {
 
         // Gửi phản hồi lại cho Web (Nếu kịp trước khi reset)
         ws.textAll("{\"status\":\"ok\",\"page\":\"setting_saved\"}");
+    }
+    // TRƯỜNG HỢP 3: YÊU CẦU THÔNG TIN HỆ THỐNG
+else if (page == "sysinfo") {
+    DynamicJsonDocument resp(256);
+    resp["page"] = "sysinfo";
+    JsonObject v = resp.createNestedObject("value");
+
+    wifi_mode_t mode = WiFi.getMode();
+    String modeStr;
+    IPAddress ip;
+
+    if ((mode & WIFI_AP) && !(mode & WIFI_STA)) {
+        modeStr = "AP";
+        ip = WiFi.softAPIP();
+        v["ssid"] = String(SSID_AP);       // SSID AP mặc định (trong global.h / task_wifi.h)
+    } else if (mode & WIFI_STA) {
+        modeStr = "STA";
+        ip = WiFi.localIP();
+        v["ssid"] = WIFI_SSID;             // SSID đã cấu hình
+    } else {
+        modeStr = "OFF";
+        ip = IPAddress(0, 0, 0, 0);
+        v["ssid"] = "";
+    }
+
+    v["mode"] = modeStr;
+    v["ip"]   = ip.toString();
+    v["status"] = (WiFi.status() == WL_CONNECTED) ? "connected" : "disconnected";
+
+    String out;
+    serializeJson(resp, out);
+    ws.textAll(out);
+}
+
+// TRƯỜNG HỢP 4: QUÊN WI-FI (XÓA FILE + RESTART VỀ AP)
+else if (page == "forget_wifi") {
+    Serial.println("🧹 Nhận yêu cầu quên Wi-Fi từ Web. Đang xóa info.dat & reset về AP...");
+    Clear_info_File();
+
+    // Thông báo lại cho Web (nếu kịp)
+    DynamicJsonDocument resp(128);
+    resp["page"] = "forget_wifi";
+    resp["status"] = "ok";
+    String out;
+    serializeJson(resp, out);
+    ws.textAll(out);
+
+    delay(200);
+    ESP.restart();
     }
 }

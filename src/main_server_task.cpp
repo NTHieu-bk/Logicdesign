@@ -7,6 +7,7 @@
 #include "neo_blinky.h"
 #include "task_check_info.h"
 #include "ArduinoJson.h"
+#include "tinyml.h"
 void main_server_task(void *pvParameters) {
     
     // Đợi cho WiFi/AP sẵn sàng khi khởi động
@@ -33,9 +34,8 @@ void main_server_task(void *pvParameters) {
                 Serial.println("Task Server: Không thể lấy Mutex Data!");
             }
 
-            // 2. --- LẤY TRẠNG THÁI THIẾT BỊ (TASK 4 bổ sung) ---
+            // 2. --- LẤY TRẠNG THÁI THIẾT BỊ ---
             // Đọc trực tiếp trạng thái điện áp trên chân GPIO để biết đèn đang Sáng hay Tắt
-            // (Dù là do Task 1 tự động hay do Web ghi đè, hàm này đều đọc được kết quả cuối cùng)
             blinky_state = digitalRead(48); 
             neo_state = digitalRead(45);
 
@@ -45,16 +45,22 @@ void main_server_task(void *pvParameters) {
             String data = "{\"page\":\"telemetry\", \"value\":{";
             data += "\"temp\":" + String(t, 1) + ",";
             data += "\"hum\":" + String(h, 1) + ",";
-            data += "\"blinky\":" + String(blinky_state) + ","; // Thêm trạng thái Blinky
-            data += "\"neo\":" + String(neo_state);             // Thêm trạng thái NeoPixel
+            data += "\"blinky\":" + String(blinky_state) + ",";
+            data += "\"neo\":" + String(neo_state) + ",";
+            
+            // Phần AI
+            data += "\"ml_st\":" + String((int)current_ml_state) + ",";
+            data += "\"ml_score\":" + String(current_anomaly_score, 2) + ",";
+            data += "\"ml_ratio\":" + String(current_anomaly_ratio, 1) + ","; 
+            data += "\"advice\":\"" + current_advice_msg + "\""; 
             data += "}}";
 
             // 4. --- GỬI LÊN WEB ---
             Webserver_sendata(data);
-            // Serial.println(data); // Bật dòng này nếu muốn debug xem JSON gửi đi
+            // Serial.println(data); // debug xem JSON gửi đi
         }
         
-        // Đợi 2 giây (giảm xuống để web cập nhật trạng thái đèn nhanh hơn)
+        // 5. --- CHỜ 2 GIÂY MỚI GỬI LẦN SAU ---
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }

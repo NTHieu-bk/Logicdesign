@@ -9,14 +9,16 @@ let tempHistory = [];
 let humHistory = [];
 let relayList = []; // Danh sách thiết bị
 let deleteTarget = null;
+let reconnectDelay = 2000;     // ms, bắt đầu từ 2s
+let reconnectTimer = null;     // id của setTimeout để tránh chồng lấn
 
 // ==================== 2. KHỞI TẠO (INIT) ====================
 window.addEventListener('load', onLoad);
 
 function onLoad(event) {
     initWebSocket();
-    //initGauges();  // Khởi tạo đồng hồ
-    //initChart();   // Khởi tạo biểu đồ
+    initGauges();  // Khởi tạo đồng hồ
+    initChart();   // Khởi tạo biểu đồ
     
     const savedTheme = localStorage.getItem('theme') || 'light';
     applyTheme(savedTheme);
@@ -37,37 +39,79 @@ function onLoad(event) {
     // Nếu relayList rỗng (chưa có thiết bị nào), thêm 2 thiết bị cố định
     if (relayList.length === 0) {
         relayList = [
-            { id: 1000, name: "LED Blinky (Task 1)", gpio: 48, state: true }, 
-            { id: 1001, name: "NeoPixel (Task 2)", gpio: 45, state: true }  
+            { id: 1000, name: "LED Blinky", gpio: 48, state: true }, 
+            { id: 1001, name: "NeoPixel", gpio: 45, state: true }  
         ];
         localStorage.setItem('myRelays', JSON.stringify(relayList));
     }
     
-    // Luôn gọi renderRelays để vẽ giao diện (dù là khôi phục hay khởi tạo mới)
     renderRelays(); 
+    // ------------------------------------------
+
+    const forgetBtn = document.getElementById('btnForgetWifi');
+    if (forgetBtn) {
+        forgetBtn.addEventListener('click', function () {
+            if (!confirm("Bạn có chắc chắn muốn xóa cấu hình Wi-Fi và quay lại AP mode không?")) return;
+            Send_Data(JSON.stringify({ page: "forget_wifi" }));
+            alert("Đã gửi yêu cầu quên Wi-Fi. ESP32 sẽ khởi động lại trong giây lát.");
+        });
+    }
 }
 
 // ==================== 3. WEBSOCKET LOGIC ====================
 function initWebSocket() {
-    console.log('Đang kết nối WebSocket...');
+    console.log('Đang kết nối WebSocket...', gateway);
     websocket = new WebSocket(gateway);
     websocket.onopen = onOpen;
     websocket.onclose = onClose;
     websocket.onmessage = onMessage;
+    websocket.onerror = function (e) {
+        console.error('Lỗi WebSocket:', e);
+    };
 }
 
 function onOpen(event) {
-    console.log('Kết nối thành công!');
+    console.log('Kết nối WebSocket thành công!');
     document.getElementById("statusText").innerText = "Đã kết nối";
     document.getElementById("connStatus").style.backgroundColor = "#00ff9d"; // Xanh
+
+    const icon = document.getElementById("wifiIcon");
+    if (icon) {
+        icon.classList.remove('disconnected');
+        icon.classList.add('connected');
+    }
+
+    // Reset backoff khi kết nối lại được
+    reconnectDelay = 2000;
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+
+    // Mỗi lần kết nối lại, xin thông tin hệ thống
+    requestSysInfo();
 }
 
 function onClose(event) {
-    console.log('Mất kết nối!');
+    console.log('Mất kết nối WebSocket!');
     document.getElementById("statusText").innerText = "Mất kết nối...";
     document.getElementById("connStatus").style.backgroundColor = "#ff4757"; // Đỏ
-    setTimeout(initWebSocket, 2000); // Thử lại sau 2s
+
+    const icon = document.getElementById("wifiIcon");
+    if (icon) {
+        icon.classList.remove('connected');
+        icon.classList.add('disconnected');
+    }
+
+    // Backoff: 2s → 4s → 8s → tối đa 10s
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => {
+        console.log(`Thử kết nối WebSocket lại sau ${reconnectDelay / 1000}s...`);
+        initWebSocket();
+        reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+    }, reconnectDelay);
 }
+
 
 function Send_Data(data) {
     if (websocket && websocket.readyState === WebSocket.OPEN) {
@@ -78,24 +122,97 @@ function Send_Data(data) {
     }
 }
 
+function requestSysInfo() {
+    // Gửi yêu cầu thông tin hệ thống lên ESP
+    Send_Data(JSON.stringify({ page: "sysinfo" }));
+}
+
+
 function onMessage(event) {
-     console.log("📩 Nhận:", event.data);
+    console.log("📩 Nhận:", event.data);
     try {
         var msg = JSON.parse(event.data);
 
-        // --- XỬ LÝ DỮ LIỆU CẢM BIẾN ---
+        // --- DỮ LIỆU CẢM BIẾN ---
         if (msg.page === "telemetry") {
+            // --- A. Cập nhật Đồng hồ & Biểu đồ ---
             const t = parseFloat(msg.value.temp);
             const h = parseFloat(msg.value.hum);
             updateDashboard(t, h);
+
+            // --- B. Cập nhật Trạng thái AI (Màu sắc & Icon) ---
+            const ml_st = msg.value.ml_st;       // 0, 1, 2
+            const ml_ratio = msg.value.ml_ratio; // %
+
+            const statusText = document.getElementById("ai_status_text");
+            const ratioText = document.getElementById("ai_ratio_val");
+
+            if (statusText && ratioText && ml_st !== undefined) {
+                ratioText.innerText = parseFloat(ml_ratio).toFixed(1);
+
+                // Xóa hiệu ứng rung cũ (nếu có)
+                statusText.parentElement.style.animation = "none";
+                statusText.parentElement.offsetHeight; /* trigger reflow */
+
+                switch (parseInt(ml_st)) {
+                    case 0: // NORMAL
+                        statusText.innerText = "✅ ỔN ĐỊNH";
+                        statusText.style.color = "#2ecc71"; // Xanh lá
+                        statusText.parentElement.style.borderColor = "#2ecc71";
+                        break;
+                    
+                    case 1: // SENSOR CHECK
+                        statusText.innerText = "⚠️ KIỂM TRA CẢM BIẾN";
+                        statusText.style.color = "#f1c40f"; // Vàng
+                        statusText.parentElement.style.borderColor = "#f1c40f";
+                        break;
+                    
+                    case 2: // WARNING
+                        statusText.innerText = "🚨 CẢNH BÁO NGUY HIỂM!";
+                        statusText.style.color = "#e74c3c"; // Đỏ
+                        statusText.parentElement.style.borderColor = "#e74c3c";
+                        // Hiệu ứng rung lắc
+                        statusText.parentElement.style.animation = "shake 0.5s infinite"; 
+                        break;
+                }
+            }
+
+            // --- C. Cập nhật Lời khuyên Trợ lý ảo (MỚI THÊM) ---
+            const adviceEl = document.getElementById("sys-advice");
+            if (adviceEl && msg.value.advice) {
+                adviceEl.innerHTML = msg.value.advice;
+                
+                // Đổi màu chữ nếu nội dung có từ "CẢNH BÁO"
+                if (msg.value.advice.includes("CẢNH BÁO")) {
+                    adviceEl.style.color = "#e74c3c"; // Đỏ
+                    adviceEl.style.fontWeight = "900";
+                } else {
+                    adviceEl.style.color = "#007bff"; // Xanh dương (hoặc màu mặc định)
+                    adviceEl.style.fontWeight = "bold";
+                }
+            }
         }
-        
-        // --- XỬ LÝ TRẠNG THÁI THIẾT BỊ (Nếu ESP32 gửi về) ---
-        // Ví dụ: Cập nhật trạng thái nút bấm nếu điều khiển từ nơi khác
+        // --- THÔNG TIN HỆ THỐNG ---
+        else if (msg.page === "sysinfo") {
+            const v = msg.value || {};
+            document.getElementById('sys-mode').innerText   = v.mode   || '-';
+            document.getElementById('sys-ssid').innerText   = v.ssid   || '-';
+            document.getElementById('sys-ip').innerText     = v.ip     || '-';
+            document.getElementById('sys-status').innerText = 
+                v.status === 'connected' ? 'Đã kết nối' : (v.status || 'Không rõ');
+        }
+        // --- PHẢN HỒI QUÊN WI-FI ---
+        else if (msg.page === "forget_wifi") {
+            if (msg.status === "ok") {
+                alert("ESP32 đã xóa cấu hình Wi-Fi, sẽ khởi động lại vào AP mode.");
+            }
+        }
+        // --- CÁI KHÁC (có thể thêm sau) ---
     } catch (e) {
         console.warn("Lỗi JSON:", e);
     }
 }
+
 
 // ==================== 4. XỬ LÝ HIỂN THỊ (Gauges + Chart) ====================
 
@@ -305,16 +422,20 @@ function applyTheme(theme) {
 function showSection(id, event) {
     // Ẩn tất cả section
     document.querySelectorAll('.section').forEach(sec => sec.style.display = 'none');
-    // Hiện section được chọn
-    const el = document.getElementById(id);
-    // Settings dùng flex để căn giữa, còn lại block
-    el.style.display = (id === 'settings' || id === 'home') ? 'block' : 'block';
-    if(id === 'settings') el.style.display = 'flex'; // Căn giữa cho form settings
 
-    // Cập nhật active class cho menu
+    const el = document.getElementById(id);
+    el.style.display = (id === 'settings' || id === 'home') ? 'block' : 'block';
+    if (id === 'settings') el.style.display = 'flex';
+
+    // Nếu chuyển sang tab Thông tin thì lấy sysinfo
+    if (id === 'info') {
+        requestSysInfo();
+    }
+
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-    if(event) event.currentTarget.classList.add('active');
+    if (event) event.currentTarget.classList.add('active');
 }
+
 
 // ==================== 6. QUẢN LÝ THIẾT BỊ (RELAY) ====================
 function openAddRelayDialog() {
@@ -362,38 +483,44 @@ function renderRelays() {
     relayList.forEach(r => {
         const card = document.createElement('div');
         card.className = 'device-card';
-        
-        // Xác định icon và chú thích dựa trên tên thiết bị
-        let iconHtml = '<i class="fa-solid fa-bolt"></i>';
-        let noteText = '';
-        let buttonText = r.state ? 'TẮT GHI ĐÈ' : 'BẬT GHI ĐÈ';
 
+        // 1. Icon & Note mặc định (Cho các thiết bị thường)
+        let iconHtml = '<i class="fa-solid fa-bolt"></i>'; // Icon tia sét
+        let noteText = '';
+
+        // 2. Kiểm tra tên để gán Icon & Note riêng (BỎ dấu '!' đi)
         if (r.name.includes("Blinky")) {
             iconHtml = '<i class="fa-solid fa-lightbulb"></i>';
-            noteText = 'Điều khiển này sẽ **ghi đè** logic nháy theo Nhiệt độ (Task 1).';
-        } else if (r.name.includes("NeoPixel")) {
+        } 
+        else if (r.name.includes("NeoPixel")) {
             iconHtml = '<i class="fa-solid fa-palette"></i>';
-            noteText = 'Điều khiển này sẽ **ghi đè** logic màu theo Độ ẩm (Task 2).';
         }
-        
-        // Trong trường hợp thiết bị đã được bật/ON, chúng ta có thể làm cho nút nổi bật hơn
-        const buttonClass = `toggle-btn ${r.state ? 'on' : ''}`;
-        
+
+        // 3. Logic Text nút: Đang Bật -> Hiển thị chữ "TẮT", Đang Tắt -> Hiển thị chữ "BẬT"
+        let buttonText = r.state ? 'OFF' : 'ON';
+
+        // 4. Logic Class nút: 
+        // - Dùng class 'btn-control' làm gốc (màu trắng)
+        // - Nếu r.state = true (Đang bật) -> Thêm class 'active' (để thành màu xanh)
+        // - BỎ dấu '!' ở chỗ r.state
+        const buttonClass = `btn-control ${r.state ? 'active' : ''}`;
+
         card.innerHTML = `
             <div class="device-icon">${iconHtml}</div>
             <h3>${r.name}</h3>
             <p style="color:var(--text-sub); font-size:0.9rem">GPIO: ${r.gpio}</p>
-            
-            <p style="font-size:0.8rem; color: var(--primary); margin-top: 10px; margin-bottom: 15px;">
+
+            <p style="font-size:0.8rem; color: var(--primary); margin-top: 10px; margin-bottom: 15px; min-height: 30px;">
                 ${noteText}
             </p>
 
             <button class="${buttonClass}" onclick="toggleRelay(${r.id})">
                 ${buttonText}
             </button>
-            
+
             <i class="fa-solid fa-trash delete-icon" onclick="showDeleteDialog(${r.id})"></i>
         `;
+
         container.appendChild(card);
     });
 }
@@ -465,38 +592,3 @@ document.getElementById("settingsForm").addEventListener("submit", function (e) 
     Send_Data(settingsJSON);
     alert("✅ Đã gửi cấu hình xuống thiết bị!");
 });
-/*
-// ==================== CHẾ ĐỘ TEST (SIMULATION) ====================
-let simInterval = null;
-
-function toggleSimulation() {
-    const btn = document.getElementById('simBtn');
-    
-    if (simInterval) {
-        // --- ĐANG CHẠY -> DỪNG LẠI ---
-        clearInterval(simInterval);
-        simInterval = null;
-        btn.innerText = "▶️ Chạy thử";
-        btn.style.background = "#2ecc71"; // Xanh lá
-        console.log("⏹️ Đã dừng mô phỏng");
-    } else {
-        // --- ĐANG DỪNG -> BẮT ĐẦU CHẠY ---
-        btn.innerText = "⏹️ Dừng";
-        btn.style.background = "#e74c3c"; // Đỏ
-        console.log("▶️ Bắt đầu mô phỏng dữ liệu...");
-
-        simInterval = setInterval(() => {
-            // 1. Random Nhiệt độ (từ 28 đến 35 độ C)
-            let randomTemp = Math.random() * (35 - 28) + 28;
-            
-            // 2. Random Độ ẩm (từ 60 đến 90 %)
-            let randomHum = Math.random() * (90 - 60) + 60;
-
-            // 3. Gọi hàm cập nhật giao diện (Giả vờ như ESP32 gửi lên)
-            // Lưu ý: Hàm updateDashboard luôn nhận đầu vào là ĐỘ C
-            updateDashboard(randomTemp, randomHum);
-
-        }, 2000); // Cập nhật mỗi 2 giây
-    }
-}
-    */

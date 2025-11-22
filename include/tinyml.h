@@ -13,7 +13,27 @@
 #include "tensorflow/lite/micro/system_setup.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 
-void setupTinyML();
+class TinyMLContext {
+public:
+    TinyMLContext();
+    ~TinyMLContext();
+    bool begin(const unsigned char *model_data);
+    TfLiteStatus invoke();
+    TfLiteTensor* getInput(int index = 0);
+    TfLiteTensor* getOutput(int index = 0);
+    tflite::ErrorReporter* getErrorReporter();
+private:
+    tflite::MicroErrorReporter micro_error_reporter_;
+    tflite::ErrorReporter *error_reporter_;
+    const tflite::Model *model_;
+    tflite::MicroInterpreter *interpreter_;
+    TfLiteTensor *input_;
+    TfLiteTensor *output_;
+    static tflite::AllOpsResolver resolver_;
+    static constexpr int kTensorArenaSize = 8 * 1024;
+    uint8_t tensor_arena_[kTensorArenaSize];
+};
+
 void tiny_ml_task(void *pvParameters);
 
 #endif

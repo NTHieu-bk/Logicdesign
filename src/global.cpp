@@ -13,6 +13,9 @@ bool glob_neo_override_state = false;
 volatile unsigned long glob_last_interaction_time = 0;
 String glob_lcd_msg_line1 = "";
 String glob_lcd_msg_line2 = "";
+bool glob_should_restart = false;
+unsigned long glob_restart_timer = 0;
+
 
 String WIFI_SSID;
 String WIFI_PASS;
