@@ -34,6 +34,15 @@ private:
     uint8_t tensor_arena_[kTensorArenaSize];
 };
 
+extern volatile int   current_ml_state;       // 0 = NORMAL, 1 = CHECK, 2 = WARNING
+extern volatile float current_anomaly_score; 
+extern volatile float current_anomaly_ratio;  
+extern String         current_advice_msg;
+
+// ===== Environment classification (COLD / COMFORT / HOT) =====
+extern volatile int   current_env_class;      
+extern String         current_env_label;    
+
 void tiny_ml_task(void *pvParameters);
 
 #endif
