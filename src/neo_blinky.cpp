@@ -1,54 +1,48 @@
 #include "neo_blinky.h"
 #include "global.h"
-// Task 2: NeoPixel color indicator
-// - Uses a single RGB NeoPixel as an environment status light.
-// - Supports manual override (from the web/UI) via
-//   glob_neo_is_overridden + glob_neo_override_state.
-// - In automatic mode, color depends on temperature & humidity zones.
+
 void neo_blinky(void *pvParameters){
-    // Create and initialize the NeoPixel strip object
+
     Adafruit_NeoPixel strip(LED_COUNT, NEO_PIN, NEO_GRB + NEO_KHZ800);
     strip.begin();
-     // Start with LED off
+    // Set all pixels to off to start
     strip.clear();
     strip.show();
 
     while(1) {                       
-        bool run = true; // flag: true = auto color logic, false = manual override
-
-        // ----- 1. Check manual override (protected by xNeoControlMutex) -----
+        bool run = true; // flag
 
         if (xSemaphoreTake(xNeoControlMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             if (glob_neo_is_overridden) {
-                // Manual command active: do NOT run automatic logic this cycle
+                // NẾU CÓ LỆNH GHI ĐÈ:
                 run = false; 
 
                 if (glob_neo_override_state) {
-                    // Manual ON: show solid white as default manual color
+                    // Lệnh WEB: BẬT (ON) -> Sáng màu Trắng (Mặc định cho chế độ bật tay)
                     strip.setPixelColor(0, strip.Color(255, 255, 255)); 
                     strip.show();
                 } else {
-                    // Manual OFF: turn LED completely off
+                    // Lệnh WEB: TẮT
                     strip.clear();
                     strip.show();
                 }
             } else {
-                 // No override: allow automatic color mapping
+                // Không có lệnh ghi đè -> Chạy tự động
                 run = true;
             }
             
-            xSemaphoreGive(xNeoControlMutex); // Release control mutex
+            xSemaphoreGive(xNeoControlMutex);
         } else {
              Serial.println("Task Neo: Không thể lấy Mutex Control!");
         }
 
-         // ----- 2. Automatic color mode based on sensor data -----
+
         if (run) {
             
             float local_temp = 0;
             float local_humid = 0;
             
-            // Safely copy the latest temperature & humidity values
+            // Lấy dữ liệu cảm biến
             if (xSemaphoreTake(xDataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
                 local_temp = glob_temperature;
                 local_humid = glob_humidity;
@@ -57,63 +51,62 @@ void neo_blinky(void *pvParameters){
                 Serial.println("Task Neo: Không thể lấy Mutex Data!");
             }
 
-            uint32_t color = 0; // RGB color to display
+            uint32_t color = 0; // Biến lưu màu sắc
 
-            // -------- Zone 1: HOT & HUMID --------
+            // --- VÙNG 1: NÓNG & ẨM ---
             if (local_temp > 35 && local_humid > 80) {
-                color = strip.Color(255, 0, 0);  // Red: extremely hot & humid
+                color = strip.Color(255, 0, 0);   // Đỏ
             }
             else if (local_temp > 35 || local_humid > 80) {
-                color = strip.Color(255, 165, 0); // Orange: very hot OR very humid
+                color = strip.Color(255, 165, 0); // Cam
             }
             else if (local_temp > 30 && local_humid > 60) {
-                color = strip.Color(255, 255, 0);  // Yellow: hot & humid (high)
+                color = strip.Color(255, 255, 0);  // Vàng
             }
             else if (local_temp > 30 || local_humid > 60) {
-                color = strip.Color(173, 255, 47); // Chartreuse: warm OR humid
+                color = strip.Color(173, 255, 47); // Chartreuse
             }
 
-            // -------- Zone 2: COLD & DRY --------
+            // --- VÙNG 2: LẠNH & KHÔ ---
             else if (local_temp < 10 && local_humid < 20) {
-                color = strip.Color(0, 0, 255);   // Blue: extremely cold & dry
+                color = strip.Color(0, 0, 255);   // Xanh dương
             }
             else if (local_temp < 10 || local_humid < 20) {
-                color = strip.Color(0, 255, 255); // Cyan: very cold OR very dry
+                color = strip.Color(0, 255, 255); // Cyan
             }
             else if (local_temp < 20 && local_humid < 30) {
-                color = strip.Color(75, 0, 130); // Indigo: cool & dry
+                color = strip.Color(75, 0, 130);  // Indigo
             }
             else if (local_temp < 20 || local_humid < 30) {
-                color = strip.Color(173, 216, 230); // Light blue: cool OR dry
+                color = strip.Color(173, 216, 230); // Xanh nhạt
             }
 
-            // -------- Zone 3: HOT & DRY --------
+            // --- VÙNG 3: NÓNG & KHÔ ---
             else if (local_temp > 30 && local_humid < 30) {
-                color = strip.Color(255, 0, 255); // Magenta: hot & dry
+                color = strip.Color(255, 0, 255); // Magenta
             }
             else if (local_temp > 35 && local_humid < 20) {
-                color = strip.Color(255, 40, 0); // Orange-red: extremely hot & dry
+                color = strip.Color(255, 40, 0); // Đỏ cam
             }
 
-            // -------- Zone 4: COLD & HUMID --------
+            // --- VÙNG 4: LẠNH & ẨM ---
             else if (local_temp < 20 && local_humid > 60) {
-                color = strip.Color(128, 0, 128);// Purple: cold & humid
+                color = strip.Color(128, 0, 128); // Tím
             }
             else if (local_temp < 10 && local_humid > 80) {
-                color = strip.Color(0, 120, 255); // Sky blue: very cold & very humid
+                color = strip.Color(0, 120, 255); // Xanh da trời
             }
 
-
-            // -------- Zone 5: IDEAL / COMFORTABLE --------
+            // --- VÙNG 5: LÝ TƯỞNG ---
             else {
-                color = strip.Color(0, 255, 0);    // Green: comfortable range
+                color = strip.Color(0, 255, 0);   // Xanh lá
             }
 
-           // Apply the selected color to the NeoPixel
+            // Cập nhật màu lên đèn
             strip.setPixelColor(0, color);
             strip.show();
             
-           // Automatic mode update rate ~500 ms
+            // Delay cho chế độ tự động (500ms)
             vTaskDelay(pdMS_TO_TICKS(500)); 
 
         } else {

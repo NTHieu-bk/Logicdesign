@@ -10,11 +10,11 @@ LiquidCrystal_I2C lcd(33, 16, 2);
 
 // --- CÁC HÀM PHỤ TRỢ (LOGIC CŨ) ---
 bool isCritical(float temperature, float humidity) {
-    return (temperature > 35.0 || humidity > 85.0 || temperature < 15.0 || humidity < 20.0);
+    return (temperature > 35.0 || humidity > 80.0 || temperature < 10.0 || humidity < 20.0);
 }
 
 bool isWarning(float temperature, float humidity) {
-    return (temperature > 30.0 || humidity > 70.0 || temperature < 20.0 || humidity < 30.0);
+    return (temperature > 30.0 || humidity > 60.0 || temperature < 20.0 || humidity < 30.0);
 }
 
 String getStatus_Temp(float temp) {

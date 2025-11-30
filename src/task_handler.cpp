@@ -59,7 +59,7 @@ void handleWebSocketMessage(String message, AsyncWebSocket &ws) {
         if (xSemaphoreTake(xNeoControlMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             
             if (is_on) {
-                // TRƯỜNG HỢP BẬT: Trả về chế độ TỰ ĐỘNG (AUTO)
+                
                 glob_neo_is_overridden = false; // <--- QUAN TRỌNG: Bỏ ghi đè
                 
                 glob_lcd_msg_line1 = "NeoPixel:";
