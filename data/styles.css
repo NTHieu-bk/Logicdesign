@@ -43,11 +43,11 @@ body {
   color: var(--text-main);
   display: flex;
   height: 100vh;
-  overflow: hidden; /* Không cuộn body, chỉ cuộn nội dung */
-  transition: background-color 0.3s, color 0.3s; /* Hiệu ứng chuyển màu mượt */
+  overflow: hidden;
+  transition: background-color 0.3s, color 0.3s;
 }
 
-/* --- Sidebar (Thanh bên) --- */
+/* --- Sidebar --- */
 .sidebar {
   width: 260px;
   background-color: var(--bg-sidebar);
@@ -71,7 +71,7 @@ body {
   padding: 14px 20px;
   margin-bottom: 10px;
   border-radius: 12px;
-  color: rgba(255,255,255,0.7); /* Màu chữ mờ */
+  color: rgba(255,255,255,0.7);
   font-weight: 600;
   cursor: pointer;
   display: flex;
@@ -80,7 +80,6 @@ body {
   transition: all 0.3s;
   font-size: 1rem;
 }
-/* Chỉnh lại màu chữ sidebar ở chế độ tối cho rõ hơn */
 [data-theme="dark"] .nav-item { color: var(--text-sidebar); }
 
 .nav-item:hover {
@@ -94,11 +93,11 @@ body {
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-/* --- Nội dung chính (Main Content) --- */
+/* --- Nội dung chính --- */
 .main-content {
   flex: 1;
   padding: 30px;
-  overflow-y: auto; /* Cho phép cuộn dọc */
+  overflow-y: auto;
   position: relative;
 }
 
@@ -138,14 +137,14 @@ body {
 }
 
 .wifi-icon.connected {
-  color: #00c853; /* xanh lá khi OK */
+  color: #00c853;
 }
 
 .wifi-icon.disconnected {
-  color: #ff4757; /* đỏ khi mất kết nối */
+  color: #ff4757;
 }
 
-/* Thẻ thông tin hệ thống */
+/* Thẻ thông tin hệ thống + thẻ AI */
 .info-card {
   background-color: var(--bg-card);
   border-radius: 12px;
@@ -191,6 +190,17 @@ body {
   color: var(--text-sub);
 }
 
+/* Lời khuyên hệ thống */
+.advice-card {
+  background-color: var(--bg-card);
+  border-radius: 12px;
+  padding: 15px 18px;
+  box-shadow: var(--shadow);
+  border-left: 5px solid var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
 /* Nút điều khiển góc phải */
 .control-buttons {
@@ -214,10 +224,11 @@ body {
   border-color: var(--primary);
   color: var(--primary);
 }
-/* Nút mặc định (Tắt - Màu trắng) */
+
+/* Nút điều khiển thiết bị */
 .btn-control {
     background-color: white;
-    color: #007bff; /* Chữ xanh */
+    color: #007bff;
     border: 1px solid #007bff;
     padding: 10px;
     width: 100%;
@@ -227,12 +238,10 @@ body {
     transition: 0.3s;
 }
 
-/* Nút khi kích hoạt (Bật - Màu xanh) */
 .btn-control.active {
     background-color: #007bff;
     color: white;
 }
-
 
 /* ==================== 4. DASHBOARD (GAUGES + CHART) ==================== */
 .gauges-container {
@@ -247,7 +256,7 @@ body {
   background-color: var(--bg-card);
   border-radius: 20px;
   padding: 20px;
-  width: 300px; /* Độ rộng thẻ đồng hồ */
+  width: 300px;
   text-align: center;
   box-shadow: var(--shadow);
   transition: background-color 0.3s;
@@ -259,7 +268,6 @@ body {
   color: var(--text-sub);
 }
 
-/* Kích thước vùng vẽ đồng hồ */
 .gauge-size {
   width: 200px;
   height: 160px;
@@ -318,7 +326,7 @@ body {
 .device-card h3 { margin: 10px 0 5px 0; }
 .device-card p { margin: 0 0 15px 0; color: var(--text-sub); font-size: 0.9rem; }
 
-/* Nút Bật/Tắt Relay */
+/* Nút toggle cũ (nếu còn dùng) */
 .toggle-btn {
   width: 100%;
   padding: 10px;
@@ -339,10 +347,10 @@ body {
   box-shadow: 0 4px 10px rgba(34, 148, 242, 0.4);
 }
 
-/* --- Style cho nút "Thêm Thiết Bị Mới" --- */
+/* Nút "Thêm Thiết Bị" */
 .add-btn {
   padding: 10px 20px;
-  background-color: var(--primary); /* Dùng màu chủ đạo */
+  background-color: var(--primary);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -425,7 +433,7 @@ body {
 
 .input-group input {
   width: 100%;
-  padding: 12px 15px 12px 45px; /* Padding trái lớn để né icon */
+  padding: 12px 15px 12px 45px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background-color: var(--input-bg);
@@ -502,9 +510,7 @@ body {
 .cancel { background-color: var(--border); color: var(--text-main); }
 .danger { background-color: var(--danger); color: #fff; }
 
-/* Cảnh báo đặc biệt cho nút Xóa */
 .warning h3 { color: var(--danger); }
-
 
 /* ==================== 8. HIỆU ỨNG & RESPONSIVE ==================== */
 .fade-in { animation: fadeIn 0.5s ease; }
@@ -519,39 +525,6 @@ body {
   to { transform: scale(1); opacity: 1; }
 }
 
-/* Mobile Responsive */
-@media (max-width: 768px) {
-  body { flex-direction: column; height: auto; overflow: auto; }
-  
-  /* Chuyển Sidebar thành Topbar trên mobile */
-  .sidebar {
-    width: 100%;
-    height: auto;
-    flex-direction: row;
-    justify-content: space-around;
-    padding: 10px 0;
-    position: sticky; top: 0;
-  }
-  
-  .logo-container { display: none; } /* Ẩn logo trên mobile để tiết kiệm chỗ */
-  
-  .nav-item {
-    width: auto;
-    padding: 8px 15px;
-    flex-direction: column;
-    gap: 5px;
-    font-size: 0.8rem;
-    border-radius: 8px;
-    margin: 0;
-  }
-  
-  .nav-item span { display: none; } /* Chỉ hiện icon trên mobile */
-  
-  .main-content { padding: 15px; }
-  .header-container { flex-direction: column; gap: 15px; align-items: flex-start; }
-  .control-buttons { width: 100%; justify-content: space-between; }
-  .gauge-card { width: 100%; }
-}
 @keyframes shake {
   0% { transform: translate(1px, 1px) rotate(0deg); }
   10% { transform: translate(-1px, -2px) rotate(-1deg); }
@@ -564,4 +537,38 @@ body {
   80% { transform: translate(-1px, -1px) rotate(1deg); }
   90% { transform: translate(1px, 2px) rotate(0deg); }
   100% { transform: translate(1px, -2px) rotate(-1deg); }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  body { flex-direction: column; height: auto; overflow: auto; }
+  
+  .sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 10px 0;
+    position: sticky; top: 0;
+  }
+  
+  .logo-container { display: none; }
+  
+  .nav-item {
+    width: auto;
+    padding: 8px 15px;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.8rem;
+    border-radius: 8px;
+    margin: 0;
+  }
+  
+  .nav-item spa
+n { display: none; }
+  
+  .main-content { padding: 15px; }
+  .header-container { flex-direction: column; gap: 15px; align-items: flex-start; }
+  .control-buttons { width: 100%; justify-content: space-between; }
+  .gauge-card { width: 100%; }
 }

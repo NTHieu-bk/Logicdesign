@@ -146,6 +146,7 @@ function onMessage(event) {
 
             const statusText = document.getElementById("ai_status_text");
             const ratioText = document.getElementById("ai_ratio_val");
+            const envLabelEl = document.getElementById("ai_env_label");
 
             if (statusText && ratioText && ml_st !== undefined) {
                 ratioText.innerText = parseFloat(ml_ratio).toFixed(1);
@@ -156,13 +157,13 @@ function onMessage(event) {
 
                 switch (parseInt(ml_st)) {
                     case 0: // NORMAL
-                        statusText.innerText = "✅ ỔN ĐỊNH";
+                        statusText.innerText = "✅ MÔI TRƯỜNG ỔN ĐỊNH";
                         statusText.style.color = "#2ecc71"; // Xanh lá
                         statusText.parentElement.style.borderColor = "#2ecc71";
                         break;
                     
-                    case 1: // SENSOR CHECK
-                        statusText.innerText = "⚠️ KIỂM TRA CẢM BIẾN";
+                    case 1: // SENSOR CHECK / MÔI TRƯỜNG CHƯA LÝ TƯỞNG
+                        statusText.innerText = "⚠️ KIỂM TRA / ĐIỀU CHỈNH NHẸ";
                         statusText.style.color = "#f1c40f"; // Vàng
                         statusText.parentElement.style.borderColor = "#f1c40f";
                         break;
@@ -177,7 +178,12 @@ function onMessage(event) {
                 }
             }
 
-            // --- C. Cập nhật Lời khuyên Trợ lý ảo (MỚI THÊM) ---
+            // Nếu backend gửi thêm env_label (VD: "LẠNH", "DỄ CHỊU", "NÓNG")
+            if (envLabelEl && msg.value.env_label) {
+                envLabelEl.innerText = msg.value.env_label;
+            }
+
+            // --- C. Cập nhật Lời khuyên Trợ lý ảo ---
             const adviceEl = document.getElementById("sys-advice");
             if (adviceEl && msg.value.advice) {
                 adviceEl.innerHTML = msg.value.advice;
@@ -187,7 +193,7 @@ function onMessage(event) {
                     adviceEl.style.color = "#e74c3c"; // Đỏ
                     adviceEl.style.fontWeight = "900";
                 } else {
-                    adviceEl.style.color = "#007bff"; // Xanh dương (hoặc màu mặc định)
+                    adviceEl.style.color = "#007bff"; // Xanh dương
                     adviceEl.style.fontWeight = "bold";
                 }
             }
@@ -316,9 +322,7 @@ function updateDashboard(tempC, hum) {
     let displayTemp = parseFloat(rawTemp.toFixed(1)); 
     let displayHum = parseFloat(hum.toFixed(1));
 
-    // --- 🛡️ THÊM KIỂM TRA AN TOÀN (FIX LỖI CRASH) ---
-    
-    // Chỉ cập nhật Đồng hồ nếu biến gTemp và gHumi ĐÃ TỒN TẠI
+    // --- 🛡️ THÊM KIỂM TRA AN TOÀN ---
     if (typeof gTemp !== 'undefined' && typeof gHumi !== 'undefined' && gTemp && gHumi) {
         try {
             gTemp.refresh(displayTemp);
@@ -326,7 +330,6 @@ function updateDashboard(tempC, hum) {
         } catch (e) { console.warn("Lỗi update Gauge:", e); }
     }
 
-    // Chỉ cập nhật Biểu đồ nếu biến chart ĐÃ TỒN TẠI
     if (typeof chart !== 'undefined' && chart) {
         try {
             const now = new Date().toLocaleTimeString();
@@ -361,14 +364,12 @@ function toggleUnit() {
         btn.innerText = "Đổi sang °F";
         label.innerText = "🌡️ Nhiệt độ (°C)";
         
-        // 1. Cập nhật Đồng hồ (F -> C)
         let valC = (currentVal - 32) * 5/9;
         createTempGauge(0, 100, valC.toFixed(1));
 
-        // 2. Cập nhật Biểu đồ (Quy đổi từng điểm dữ liệu F -> C)
         if (chart) {
             chart.data.datasets[0].data = chart.data.datasets[0].data.map(v => (v - 32) * 5/9);
-            chart.update('none'); // Cập nhật ngay lập tức, không hiệu ứng
+            chart.update('none');
         }
         
     } else {
@@ -376,14 +377,12 @@ function toggleUnit() {
         btn.innerText = "Đổi sang °C";
         label.innerText = "🌡️ Nhiệt độ (°F)";
         
-        // 1. Cập nhật Đồng hồ (C -> F)
         let valF = (currentVal * 9/5) + 32;
         createTempGauge(32, 212, valF.toFixed(1));
 
-        // 2. Cập nhật Biểu đồ (Quy đổi từng điểm dữ liệu C -> F)
         if (chart) {
             chart.data.datasets[0].data = chart.data.datasets[0].data.map(v => (v * 9/5) + 32);
-            chart.update('none'); // Cập nhật ngay lập tức
+            chart.update('none');
         }
     }
 }
@@ -420,14 +419,12 @@ function applyTheme(theme) {
 
 // Chuyển Tab (Home/Device/Settings)
 function showSection(id, event) {
-    // Ẩn tất cả section
     document.querySelectorAll('.section').forEach(sec => sec.style.display = 'none');
 
     const el = document.getElementById(id);
     el.style.display = (id === 'settings' || id === 'home') ? 'block' : 'block';
     if (id === 'settings') el.style.display = 'flex';
 
-    // Nếu chuyển sang tab Thông tin thì lấy sysinfo
     if (id === 'info') {
         requestSysInfo();
     }
@@ -447,7 +444,6 @@ function closeAddRelayDialog() {
 
 function saveRelay() {
     const name = document.getElementById('relayName').value.trim();
-    // Chuyển GPIO sang số nguyên để xử lý
     const gpioVal = document.getElementById('relayGPIO').value.trim();
     const gpio = parseInt(gpioVal); 
     
@@ -456,39 +452,33 @@ function saveRelay() {
         return;
     }
 
-    //Thêm vào danh sách
     relayList.push({ 
         id: Date.now(), 
         name: name, 
-        gpio: gpio, // Lưu dưới dạng số
+        gpio: gpio,
         state: false 
     });
 
-    //Lưu vào bộ nhớ trình duyệt
     localStorage.setItem('myRelays', JSON.stringify(relayList));
 
-    //Cập nhật giao diện
     renderRelays();
     closeAddRelayDialog();
     
-    //Reset form
     document.getElementById('relayName').value = "";
     document.getElementById('relayGPIO').value = "";
 }
 
 function renderRelays() {
     const container = document.getElementById('relayContainer');
-    container.innerHTML = ""; // Xóa cũ
+    container.innerHTML = "";
 
     relayList.forEach(r => {
         const card = document.createElement('div');
         card.className = 'device-card';
 
-        // 1. Icon & Note mặc định (Cho các thiết bị thường)
-        let iconHtml = '<i class="fa-solid fa-bolt"></i>'; // Icon tia sét
+        let iconHtml = '<i class="fa-solid fa-bolt"></i>';
         let noteText = '';
 
-        // 2. Kiểm tra tên để gán Icon & Note riêng (BỎ dấu '!' đi)
         if (r.name.includes("Blinky")) {
             iconHtml = '<i class="fa-solid fa-lightbulb"></i>';
         } 
@@ -496,13 +486,7 @@ function renderRelays() {
             iconHtml = '<i class="fa-solid fa-palette"></i>';
         }
 
-        // 3. Logic Text nút: Đang Bật -> Hiển thị chữ "TẮT", Đang Tắt -> Hiển thị chữ "BẬT"
         let buttonText = r.state ? 'OFF' : 'ON';
-
-        // 4. Logic Class nút: 
-        // - Dùng class 'btn-control' làm gốc (màu trắng)
-        // - Nếu r.state = true (Đang bật) -> Thêm class 'active' (để thành màu xanh)
-        // - BỎ dấu '!' ở chỗ r.state
         const buttonClass = `btn-control ${r.state ? 'active' : ''}`;
 
         card.innerHTML = `
@@ -528,10 +512,9 @@ function renderRelays() {
 function toggleRelay(id) {
     const relay = relayList.find(r => r.id === id);
     if (relay) {
-        relay.state = !relay.state; // Đảo trạng thái
-        renderRelays(); // Vẽ lại giao diện
+        relay.state = !relay.state;
+        renderRelays();
 
-        // Gửi lệnh xuống ESP32 qua WebSocket
         const msg = {
             page: "device",
             value: {
@@ -552,14 +535,8 @@ function closeConfirmDelete() {
 }
 function confirmDelete() {
     if (deleteTarget) {
-        //Lọc bỏ thiết bị cần xóa
         relayList = relayList.filter(r => r.id !== deleteTarget);
-        
-        //Cập nhật lại bộ nhớ trình duyệt
-
         localStorage.setItem('myRelays', JSON.stringify(relayList));
-        
-        //Cập nhật giao diện
         renderRelays();
     }
     closeConfirmDelete();
@@ -569,14 +546,12 @@ function confirmDelete() {
 document.getElementById("settingsForm").addEventListener("submit", function (e) {
     e.preventDefault();
 
-    // Lấy giá trị từ form
     const ssid = document.getElementById("ssid").value.trim();
     const password = document.getElementById("password").value.trim();
     const token = document.getElementById("token").value.trim();
     const server = document.getElementById("server").value.trim();
     const port = document.getElementById("port").value.trim();
 
-    // Đóng gói JSON
     const settingsJSON = JSON.stringify({
         page: "setting",
         value: {
@@ -588,7 +563,6 @@ document.getElementById("settingsForm").addEventListener("submit", function (e) 
         }
     });
 
-    // Gửi đi
     Send_Data(settingsJSON);
     alert("✅ Đã gửi cấu hình xuống thiết bị!");
 });

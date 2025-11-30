@@ -18,8 +18,9 @@
 
   <div class="sidebar">
     <div class="logo-container">
-      <i class="fa-solid fa-microchip" style="font-size: 50px; color: var(--active-item-text);"></i>
-      <h3 style="margin: 10px 0 0 0; color: var(--sidebar-text);">YOLO UNO</h3>
+      <!-- Đổi sang biến đã khai báo trong CSS -->
+      <i class="fa-solid fa-microchip" style="font-size: 50px; color: var(--text-sidebar);"></i>
+      <h3 style="margin: 10px 0 0 0; color: var(--text-sidebar);">YOLO UNO</h3>
     </div>
 
     <div class="nav-item active" onclick="showSection('home', event)">
@@ -40,6 +41,7 @@
 
     <div id="home" class="section fade-in">
       
+      <!-- KHỐI ĐÁNH GIÁ AI (TINYML) -->
       <div class="info-card" style="margin: 20px auto 10px auto; text-align: center; max-width: 500px; border: 2px solid var(--border);">
         <h2 style="justify-content: center; margin-bottom: 5px;">🤖 Đánh giá AI (TinyML)</h2>
         
@@ -47,11 +49,18 @@
           ĐANG CHỜ DỮ LIỆU...
         </h1>
 
+        <!-- Môi trường: LẠNH / DỄ CHỊU / NÓNG (do AI dự đoán) -->
+        <p style="color: var(--text-sub); margin: 0 0 4px 0;">
+          Trạng thái môi trường: <b id="ai_env_label">-</b>
+        </p>
+
+        <!-- Tỷ lệ bất thường / nguy cơ (từ ml_ratio) -->
         <p style="color: var(--text-sub); margin: 0;">
-          Tỷ lệ bất thường: <b id="ai_ratio_val">0</b>%
+          Tỷ lệ bất thường / nguy cơ: <b id="ai_ratio_val">0</b>%
         </p>
       </div>
 
+      <!-- LỜI KHUYÊN HỆ THỐNG (TỪ msg.value.advice) -->
       <div class="advice-card" style="background: var(--bg-card); padding: 15px; border-radius: 12px; margin: 0 auto 20px auto; max-width: 500px; box-shadow: var(--shadow); border-left: 5px solid #007bff; display: flex; align-items: center; gap: 15px;">
           <div style="font-size: 24px;">💡</div>
           <div style="text-align: left;">
@@ -104,7 +113,7 @@
       </header>
 
       <div class="device-list" id="relayContainer">
-        </div>
+      </div>
 
       <button class="add-relay-btn" onclick="openAddRelayDialog()">
         <i class="fa-solid fa-plus"></i>
@@ -185,6 +194,7 @@
     </div>
   </div>
 
+  <!-- Dialog thêm relay -->
   <div id="addRelayDialog" class="dialog-overlay" style="display:none;">
     <div class="dialog fade-in">
       <h3><i class="fa-solid fa-plug"></i> Thêm relay mới</h3>
@@ -201,6 +211,7 @@
     </div>
   </div>
 
+  <!-- Dialog xác nhận xóa -->
   <div id="confirmDeleteDialog" class="dialog-overlay" style="display:none;">
     <div class="dialog warning fade-in">
       <h3>⚠️ Xác nhận xóa</h3>
