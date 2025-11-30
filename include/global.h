@@ -24,11 +24,7 @@ extern String current_advice_msg;
 extern bool glob_should_restart;
 extern unsigned long glob_restart_timer;
 
-enum MLSystemState {
-    ML_STATE_NORMAL,
-    ML_STATE_SENSOR_CHECK,
-    ML_STATE_WARNING
-};
+
 
 extern MLSystemState current_ml_state;    // Trạng thái đèn báo
 extern float current_anomaly_score;       // Điểm số AI (0.0 - 1.0)
