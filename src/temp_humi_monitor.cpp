@@ -43,6 +43,7 @@ void temp_humi_monitor(void *pvParameters) {
                     glob_temperature = dht20.getTemperature();
                     glob_humidity = dht20.getHumidity();
                     xSemaphoreGive(xDataMutex);
+                    xSemaphoreGive(xSensorUpdateSemaphore); // Notify new data available
                 }
             }
             last_sensor_read = millis();

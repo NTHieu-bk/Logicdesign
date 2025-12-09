@@ -16,6 +16,7 @@ String glob_lcd_msg_line2 = "";
 bool glob_should_restart = false;
 unsigned long glob_restart_timer = 0;
 
+SemaphoreHandle_t xSensorUpdateSemaphore;
 
 String WIFI_SSID;
 String WIFI_PASS;

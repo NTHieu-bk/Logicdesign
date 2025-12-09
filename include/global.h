@@ -18,6 +18,7 @@ extern SemaphoreHandle_t xNeoControlMutex;    // Safe lock
 extern bool glob_neo_is_overridden;           // Flag: Is overridden by Web?
 extern bool glob_neo_override_state;          // (ON/OFF)
 extern volatile unsigned long glob_last_interaction_time;
+extern SemaphoreHandle_t xSensorUpdateSemaphore;
 extern String glob_lcd_msg_line1;
 extern String glob_lcd_msg_line2;
 extern String current_advice_msg;
