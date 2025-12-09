@@ -5,7 +5,9 @@
 #include <task_check_info.h>
 #include <task_webserver.h>
 
+extern void setupWiFiEvents();
 extern bool Wifi_reconnect();
 extern void startAP();
+extern void startSTA();
 
 #endif

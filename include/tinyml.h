@@ -39,7 +39,7 @@ extern volatile float current_anomaly_score;
 extern volatile float current_anomaly_ratio;  
 extern String         current_advice_msg;
 
-// ===== Environment classification (COLD / COMFORT / HOT) =====
+// Environment classification (COLD / COMFORT / HOT)
 extern volatile int   current_env_class;      
 extern String         current_env_label;    
 

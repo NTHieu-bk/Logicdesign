@@ -1,10 +1,9 @@
 <!DOCTYPE HTML>
-<html lang="vi">
-
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bảng điều khiển YOLO UNO</title>
+  <title>YOLO UNO Dashboard</title>
 
   <link rel="stylesheet" href="styles.css">
 
@@ -18,207 +17,208 @@
 
   <div class="sidebar">
     <div class="logo-container">
-      <!-- Đổi sang biến đã khai báo trong CSS -->
       <i class="fa-solid fa-microchip" style="font-size: 50px; color: var(--text-sidebar);"></i>
       <h3 style="margin: 10px 0 0 0; color: var(--text-sidebar);">YOLO UNO</h3>
     </div>
 
     <div class="nav-item active" onclick="showSection('home', event)">
-      <i class="fa-solid fa-house"></i> <span>Trang chủ</span>
+      <i class="fa-solid fa-house"></i> <span>Home</span>
     </div>
     <div class="nav-item" onclick="showSection('device', event)">
-      <i class="fa-solid fa-bolt"></i> <span>Thiết bị</span>
+      <i class="fa-solid fa-bolt"></i> <span>Devices</span>
     </div>
     <div class="nav-item" onclick="showSection('info', event)">
-      <i class="fa-solid fa-circle-info"></i> <span>Thông tin</span>
+      <i class="fa-solid fa-circle-info"></i> <span>System Info</span>
     </div>
     <div class="nav-item" onclick="showSection('settings', event)">
-      <i class="fa-solid fa-gear"></i> <span>Cài đặt</span>
+      <i class="fa-solid fa-gear"></i> <span>Settings</span>
     </div>
   </div>
 
   <div class="main-content">
 
+    <!-- ================= HOME ================= -->
     <div id="home" class="section fade-in">
       
-      <!-- KHỐI ĐÁNH GIÁ AI (TINYML) -->
+      <!-- TINYML STATUS CARD -->
       <div class="info-card" style="margin: 20px auto 10px auto; text-align: center; max-width: 500px; border: 2px solid var(--border);">
-        <h2 style="justify-content: center; margin-bottom: 5px;">🤖 Đánh giá AI (TinyML)</h2>
+        <h2 style="justify-content: center; margin-bottom: 5px;">🤖 AI Environment Status (TinyML)</h2>
         
         <h1 id="ai_status_text" style="margin: 10px 0; font-size: 1.8rem; color: var(--success);">
-          ĐANG CHỜ DỮ LIỆU...
+          WAITING FOR DATA...
         </h1>
 
-        <!-- Môi trường: LẠNH / DỄ CHỊU / NÓNG (do AI dự đoán) -->
         <p style="color: var(--text-sub); margin: 0 0 4px 0;">
-          Trạng thái môi trường: <b id="ai_env_label">-</b>
+          Environment label: <b id="ai_env_label">-</b>
         </p>
 
-        <!-- Tỷ lệ bất thường / nguy cơ (từ ml_ratio) -->
         <p style="color: var(--text-sub); margin: 0;">
-          Tỷ lệ bất thường / nguy cơ: <b id="ai_ratio_val">0</b>%
+          Anomaly / risk ratio: <b id="ai_ratio_val">0</b>%
         </p>
       </div>
 
-      <!-- LỜI KHUYÊN HỆ THỐNG (TỪ msg.value.advice) -->
+      <!-- SYSTEM ADVICE CARD -->
       <div class="advice-card" style="background: var(--bg-card); padding: 15px; border-radius: 12px; margin: 0 auto 20px auto; max-width: 500px; box-shadow: var(--shadow); border-left: 5px solid #007bff; display: flex; align-items: center; gap: 15px;">
           <div style="font-size: 24px;">💡</div>
           <div style="text-align: left;">
-              <h3 style="margin: 0; font-size: 16px; color: var(--text-main);">Lời khuyên hệ thống</h3>
+              <h3 style="margin: 0; font-size: 16px; color: var(--text-main);">System recommendation</h3>
               <p id="sys-advice" style="margin: 5px 0 0 0; font-weight: bold; color: var(--primary); font-size: 1.1rem;">
-                  Đang phân tích dữ liệu...
+                  Analysing sensor data...
               </p>
           </div>
       </div>
 
       <div class="header-container">
         <div>
-            <h1>Giám sát Môi trường</h1>
+            <h1>Environment Monitoring</h1>
             <p class="status-text">
-            <span id="connStatus" class="dot"></span>
-            <i id="wifiIcon" class="fa-solid fa-wifi wifi-icon disconnected"></i>
-            <span id="statusText">Đang kết nối...</span>
+              <span id="connStatus" class="dot"></span>
+              <i id="wifiIcon" class="fa-solid fa-wifi wifi-icon disconnected"></i>
+              <span id="statusText">Connecting...</span>
             </p>
         </div>
         <div class="control-buttons">
-            <button id="unitBtn" class="btn-ctrl" onclick="toggleUnit()">Đổi sang °F</button>
-            <button id="themeBtn" class="btn-ctrl" onclick="toggleTheme()">🌙 Tối</button>
+            <button id="unitBtn" class="btn-ctrl" onclick="toggleUnit()">Switch to °F</button>
+            <button id="themeBtn" class="btn-ctrl" onclick="toggleTheme()">🌙 Dark</button>
         </div>
       </div>
 
       <div class="gauges-container">
         <div class="gauge-card">
-          <h2 id="label-temp">🌡️ Nhiệt độ (°C)</h2>
+          <h2 id="label-temp">🌡️ Temperature (°C)</h2>
           <div id="gauge_temp" class="gauge-size"></div>
         </div>
 
         <div class="gauge-card">
-          <h2>💧 Độ ẩm (%)</h2>
+          <h2>💧 Humidity (%)</h2>
           <div id="gauge_humi" class="gauge-size"></div>
         </div>
       </div>
 
       <div class="chart-wrapper">
-        <h3>📈 Lịch sử dữ liệu</h3>
+        <h3>📈 Data history</h3>
         <div class="chart-container">
             <canvas id="sensorChart"></canvas>
         </div>
       </div>
     </div>
 
+    <!-- ================= DEVICES ================= -->
     <div id="device" class="section" style="display:none;">
       <header>
-        <h1>Điều khiển Relay</h1>
-        <p>Quản lý và điều khiển các thiết bị.</p>
+        <h1>Relay control</h1>
+        <p>Manage and control your devices.</p>
       </header>
 
-      <div class="device-list" id="relayContainer">
-      </div>
+      <div class="device-list" id="relayContainer"></div>
 
       <button class="add-relay-btn" onclick="openAddRelayDialog()">
         <i class="fa-solid fa-plus"></i>
       </button>
     </div>
 
+    <!-- ================= SYSTEM INFO ================= -->
     <div id="info" class="section" style="display:none;">
       <div class="info-card">
-        <h2><i class="fa-solid fa-circle-info"></i> Thông tin hệ thống</h2>
+        <h2><i class="fa-solid fa-circle-info"></i> System information</h2>
 
         <div class="info-row">
-          <span class="info-label">Chế độ Wi-Fi:</span>
+          <span class="info-label">Wi-Fi mode:</span>
           <span id="sys-mode">-</span>
         </div>
         <div class="info-row">
-          <span class="info-label">SSID hiện tại:</span>
+          <span class="info-label">Current SSID:</span>
           <span id="sys-ssid">-</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Địa chỉ IP:</span>
+          <span class="info-label">IP address:</span>
           <span id="sys-ip">-</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Trạng thái:</span>
+          <span class="info-label">Status:</span>
           <span id="sys-status">-</span>
         </div>
 
         <div class="info-actions">
-          <button class="btn-ctrl" type="button" onclick="requestSysInfo()">🔄 Làm mới</button>
+          <button class="btn-ctrl" type="button" onclick="requestSysInfo()">🔄 Refresh</button>
           <button id="btnForgetWifi" class="btn-ctrl danger" type="button">
-            🧹 Quên Wi-Fi & quay về AP
+            🧹 Forget Wi-Fi & back to AP
           </button>
         </div>
 
-        <p class="info-note">
-          Lưu ý: Sau khi bấm <b>Quên Wi-Fi</b>, ESP32 sẽ xóa cấu hình mạng, 
-          tự khởi động lại và phát lại Wi-Fi AP mặc định. Bạn cần kết nối lại AP để cấu hình lần nữa.
+        <!-- Note text will be updated by script depending on AP / STA -->
+        <p id="info-note" class="info-note">
+          Note: When you click <b>Forget Wi-Fi</b>, ESP32 will erase the saved STA Wi-Fi,
+          restart and fall back to the default AP. You must connect to the AP again to reconfigure.
         </p>
       </div>
     </div>
 
+    <!-- ================= SETTINGS ================= -->
     <div id="settings" class="section settings-section" style="display:none;">
       <div class="settings-card">
-        <h2><i class="fa-solid fa-sliders"></i> Cấu hình hệ thống</h2>
-        <p>Nhập thông tin Wi-Fi và Server bên dưới.</p>
+        <h2><i class="fa-solid fa-sliders"></i> System configuration</h2>
+        <p>Enter Wi-Fi and Core IoT server information.</p>
 
         <form id="settingsForm">
           <div class="input-group">
             <i class="fa-solid fa-wifi"></i>
-            <input type="text" id="ssid" placeholder="Tên Wi-Fi (SSID)" required>
+            <input type="text" id="ssid" placeholder="Wi-Fi name (SSID)" required>
           </div>
 
           <div class="input-group">
             <i class="fa-solid fa-lock"></i>
-            <input type="password" id="password" placeholder="Mật khẩu Wi-Fi" required>
+            <input type="password" id="password" placeholder="Wi-Fi password" required>
           </div>
 
           <div class="input-group">
             <i class="fa-solid fa-key"></i>
-            <input type="text" id="token" placeholder="Mã Token Core IoT" required>
+            <input type="text" id="token" placeholder="Core IoT token" required>
           </div>
 
           <div class="input-group">
             <i class="fa-solid fa-server"></i>
-            <input type="text" id="server" placeholder="Máy chủ Core IoT" required>
+            <input type="text" id="server" placeholder="Core IoT server" required>
           </div>
 
           <div class="input-group">
             <i class="fa-solid fa-plug"></i>
-            <input type="number" id="port" placeholder="Cổng Core IoT" required min="0">
+            <input type="number" id="port" placeholder="Core IoT port" required min="0">
           </div>
 
           <button type="submit" class="btn-save">
-            <i class="fa-solid fa-floppy-disk"></i> Lưu cấu hình
+            <i class="fa-solid fa-floppy-disk"></i> Save configuration
           </button>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- Dialog thêm relay -->
+  <!-- Add relay dialog -->
   <div id="addRelayDialog" class="dialog-overlay" style="display:none;">
     <div class="dialog fade-in">
-      <h3><i class="fa-solid fa-plug"></i> Thêm relay mới</h3>
+      <h3><i class="fa-solid fa-plug"></i> Add new relay</h3>
       <div class="input-field">
-        <input type="text" id="relayName" placeholder="Tên relay (VD: Đèn)">
+        <input type="text" id="relayName" placeholder="Relay name (e.g., Light)">
       </div>
       <div class="input-field">
-        <input type="number" id="relayGPIO" placeholder="Chân GPIO (VD: 2)" min="0">
+        <input type="number" id="relayGPIO" placeholder="GPIO pin (e.g., 2)" min="0">
       </div>
       <div class="dialog-buttons">
-        <button class="confirm" onclick="saveRelay()">Lưu</button>
-        <button class="cancel" onclick="closeAddRelayDialog()">Hủy</button>
+        <button class="confirm" onclick="saveRelay()">Save</button>
+        <button class="cancel" onclick="closeAddRelayDialog()">Cancel</button>
       </div>
     </div>
   </div>
 
-  <!-- Dialog xác nhận xóa -->
+  <!-- Delete confirmation dialog -->
   <div id="confirmDeleteDialog" class="dialog-overlay" style="display:none;">
     <div class="dialog warning fade-in">
-      <h3>⚠️ Xác nhận xóa</h3>
-      <p>Bạn có chắc chắn muốn xóa thiết bị này không?</p>
+      <h3>⚠️ Confirm delete</h3>
+      <p>Are you sure you want to delete this device?</p>
       <div class="dialog-buttons">
-        <button class="danger" onclick="confirmDelete()">Xóa</button>
-        <button class="cancel" onclick="closeConfirmDelete()">Hủy</button>
+        <button class="danger" onclick="confirmDelete()">Delete</button>
+        <button class="cancel" onclick="closeConfirmDelete()">Cancel</button>
       </div>
     </div>
   </div>

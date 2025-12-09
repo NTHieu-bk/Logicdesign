@@ -44,4 +44,5 @@ void loop()
     }
   }
   Webserver_reconnect();
+  vTaskDelay(pdMS_TO_TICKS(100));
 }

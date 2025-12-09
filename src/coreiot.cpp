@@ -1,3 +1,4 @@
+/*
 #include "coreiot.h"
 
 // ----------- CONFIGURE THESE! -----------
@@ -128,3 +129,4 @@ void coreiot_task(void *pvParameters){
         vTaskDelay(10000);  // Publish every 10 seconds
     }
 }
+    */

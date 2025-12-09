@@ -1,79 +1,75 @@
-// ==================== WEBSOCKET ====================
+//   1. GLOBAL / UI STATE   
 var gateway = `ws://${window.location.hostname}/ws`;
 var websocket;
-// Biến trạng thái
-let isCelsius = true;
-let chart;         // Biểu đồ
-let gTemp, gHumi;  // Đồng hồ JustGage
-let tempHistory = []; 
-let humHistory = [];
-let relayList = []; // Danh sách thiết bị
-let deleteTarget = null;
-let reconnectDelay = 2000;     // ms, bắt đầu từ 2s
-let reconnectTimer = null;     // id của setTimeout để tránh chồng lấn
 
-// ==================== 2. KHỞI TẠO (INIT) ====================
+let isCelsius = true;
+let chart;
+let gTemp, gHumi;
+let relayList = [];
+let deleteTarget = null;
+
+let reconnectDelay = 2000;   // backoff start (ms)
+let reconnectTimer = null;
+
+//    2. INIT   
 window.addEventListener('load', onLoad);
 
-function onLoad(event) {
+function onLoad() {
     initWebSocket();
-    initGauges();  // Khởi tạo đồng hồ
-    initChart();   // Khởi tạo biểu đồ
-    
+    initGauges();
+    initChart();
+
     const savedTheme = localStorage.getItem('theme') || 'light';
     applyTheme(savedTheme);
-    
-    // --- KHÔI PHỤC RELAY HOẶC KHỞI TẠO CỐ ĐỊNH (TASK 4) ---
+
+    // Restore saved relays or create default ones
     let savedRelays = localStorage.getItem('myRelays');
-    
     if (savedRelays) {
         try {
             relayList = JSON.parse(savedRelays);
         } catch (e) {
-            console.error("Lỗi dữ liệu relay, đã reset:", e);
-            localStorage.removeItem('myRelays'); 
-            relayList = []; 
+            console.error("Relay data error, resetting:", e);
+            localStorage.removeItem('myRelays');
+            relayList = [];
         }
     }
-
-    // Nếu relayList rỗng (chưa có thiết bị nào), thêm 2 thiết bị cố định
     if (relayList.length === 0) {
         relayList = [
-            { id: 1000, name: "LED Blinky", gpio: 48, state: true }, 
-            { id: 1001, name: "NeoPixel", gpio: 45, state: true }  
+            { id: 1000, name: "LED Blinky", gpio: 48, state: true },
+            { id: 1001, name: "NeoPixel",   gpio: 45, state: true }
         ];
         localStorage.setItem('myRelays', JSON.stringify(relayList));
     }
-    
-    renderRelays(); 
-    // ------------------------------------------
+    renderRelays();
 
+    // Forget Wi-Fi button (only makes sense in STA mode, handled in onMessage)
     const forgetBtn = document.getElementById('btnForgetWifi');
     if (forgetBtn) {
         forgetBtn.addEventListener('click', function () {
-            if (!confirm("Bạn có chắc chắn muốn xóa cấu hình Wi-Fi và quay lại AP mode không?")) return;
+            if (forgetBtn.disabled) return;
+            if (!confirm("Are you sure you want to erase STA Wi-Fi config and reboot to AP mode?")) return;
             Send_Data(JSON.stringify({ page: "forget_wifi" }));
-            alert("Đã gửi yêu cầu quên Wi-Fi. ESP32 sẽ khởi động lại trong giây lát.");
+            alert("Request sent. ESP32 will erase Wi-Fi config and restart soon.");
         });
     }
 }
 
-// ==================== 3. WEBSOCKET LOGIC ====================
+//    3. WEBSOCKET   
 function initWebSocket() {
-    console.log('Đang kết nối WebSocket...', gateway);
+    console.log('Connecting WebSocket...', gateway);
     websocket = new WebSocket(gateway);
     websocket.onopen = onOpen;
     websocket.onclose = onClose;
     websocket.onmessage = onMessage;
     websocket.onerror = function (e) {
-        console.error('Lỗi WebSocket:', e);
+        console.error('WebSocket error:', e);
     };
 }
 
-function onOpen(event) {
-    console.log('Kết nối WebSocket thành công!');
-    document.getElementById("statusText").innerText = "Đã kết nối";
-    document.getElementById("connStatus").style.backgroundColor = "#00ff9d"; // Xanh
+function onOpen() {
+    console.log('WebSocket connected!');
+    document.getElementById("statusText").innerText = "Connected";
+    document.getElementById("connStatus").style.backgroundColor = "#00ff9d";
 
     const icon = document.getElementById("wifiIcon");
     if (icon) {
@@ -81,21 +77,21 @@ function onOpen(event) {
         icon.classList.add('connected');
     }
 
-    // Reset backoff khi kết nối lại được
+    // Reset backoff timer
     reconnectDelay = 2000;
     if (reconnectTimer) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
     }
 
-    // Mỗi lần kết nối lại, xin thông tin hệ thống
+    // Ask for system info on every reconnect
     requestSysInfo();
 }
 
-function onClose(event) {
-    console.log('Mất kết nối WebSocket!');
-    document.getElementById("statusText").innerText = "Mất kết nối...";
-    document.getElementById("connStatus").style.backgroundColor = "#ff4757"; // Đỏ
+function onClose() {
+    console.log('WebSocket disconnected!');
+    document.getElementById("statusText").innerText = "Disconnected...";
+    document.getElementById("connStatus").style.backgroundColor = "#ff4757";
 
     const icon = document.getElementById("wifiIcon");
     if (icon) {
@@ -103,130 +99,148 @@ function onClose(event) {
         icon.classList.add('disconnected');
     }
 
-    // Backoff: 2s → 4s → 8s → tối đa 10s
+    // Exponential backoff reconnect: 2 → 4 → 8 → max 10s
     if (reconnectTimer) clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(() => {
-        console.log(`Thử kết nối WebSocket lại sau ${reconnectDelay / 1000}s...`);
+        console.log(`Reconnecting WebSocket in ${reconnectDelay / 1000}s...`);
         initWebSocket();
         reconnectDelay = Math.min(reconnectDelay * 2, 10000);
     }, reconnectDelay);
 }
 
-
 function Send_Data(data) {
     if (websocket && websocket.readyState === WebSocket.OPEN) {
         websocket.send(data);
-        console.log("📤 Đã gửi:", data);
+        console.log("📤 Sent:", data);
     } else {
-        console.warn("⚠️ WebSocket chưa sẵn sàng!");
+        console.warn("⚠️ WebSocket is not ready!");
     }
 }
 
 function requestSysInfo() {
-    // Gửi yêu cầu thông tin hệ thống lên ESP
     Send_Data(JSON.stringify({ page: "sysinfo" }));
 }
 
-
+//    4. HANDLE INCOMING MESSAGES   
 function onMessage(event) {
-    console.log("📩 Nhận:", event.data);
+    console.log("📩 Received:", event.data);
     try {
         var msg = JSON.parse(event.data);
 
-        // --- DỮ LIỆU CẢM BIẾN ---
+        // Telemetry: sensor + TinyML status
         if (msg.page === "telemetry") {
-            // --- A. Cập nhật Đồng hồ & Biểu đồ ---
             const t = parseFloat(msg.value.temp);
             const h = parseFloat(msg.value.hum);
             updateDashboard(t, h);
 
-            // --- B. Cập nhật Trạng thái AI (Màu sắc & Icon) ---
-            const ml_st = msg.value.ml_st;       // 0, 1, 2
-            const ml_ratio = msg.value.ml_ratio; // %
-
+            const ml_st    = msg.value.ml_st;
+            const ml_ratio = msg.value.ml_ratio;
             const statusText = document.getElementById("ai_status_text");
-            const ratioText = document.getElementById("ai_ratio_val");
+            const ratioText  = document.getElementById("ai_ratio_val");
             const envLabelEl = document.getElementById("ai_env_label");
 
             if (statusText && ratioText && ml_st !== undefined) {
                 ratioText.innerText = parseFloat(ml_ratio).toFixed(1);
 
-                // Xóa hiệu ứng rung cũ (nếu có)
+                // reset shake animation
                 statusText.parentElement.style.animation = "none";
-                statusText.parentElement.offsetHeight; /* trigger reflow */
+                statusText.parentElement.offsetHeight;
 
                 switch (parseInt(ml_st)) {
-                    case 0: // NORMAL
-                        statusText.innerText = "✅ MÔI TRƯỜNG ỔN ĐỊNH";
-                        statusText.style.color = "#2ecc71"; // Xanh lá
+                    case 0: // normal
+                        statusText.innerText = "✅ ENVIRONMENT NORMAL";
+                        statusText.style.color = "#2ecc71";
                         statusText.parentElement.style.borderColor = "#2ecc71";
                         break;
-                    
-                    case 1: // SENSOR CHECK / MÔI TRƯỜNG CHƯA LÝ TƯỞNG
-                        statusText.innerText = "⚠️ KIỂM TRA / ĐIỀU CHỈNH NHẸ";
-                        statusText.style.color = "#f1c40f"; // Vàng
+                    case 1: // light adjustment / sensor check
+                        statusText.innerText = "⚠️ CHECK / SMALL ADJUSTMENT";
+                        statusText.style.color = "#f1c40f";
                         statusText.parentElement.style.borderColor = "#f1c40f";
                         break;
-                    
-                    case 2: // WARNING
-                        statusText.innerText = "🚨 CẢNH BÁO NGUY HIỂM!";
-                        statusText.style.color = "#e74c3c"; // Đỏ
+                    case 2: // warning
+                        statusText.innerText = "🚨 DANGEROUS ENVIRONMENT!";
+                        statusText.style.color = "#e74c3c";
                         statusText.parentElement.style.borderColor = "#e74c3c";
-                        // Hiệu ứng rung lắc
-                        statusText.parentElement.style.animation = "shake 0.5s infinite"; 
+                        statusText.parentElement.style.animation = "shake 0.5s infinite";
                         break;
                 }
             }
 
-            // Nếu backend gửi thêm env_label (VD: "LẠNH", "DỄ CHỊU", "NÓNG")
             if (envLabelEl && msg.value.env_label) {
                 envLabelEl.innerText = msg.value.env_label;
             }
 
-            // --- C. Cập nhật Lời khuyên Trợ lý ảo ---
             const adviceEl = document.getElementById("sys-advice");
             if (adviceEl && msg.value.advice) {
                 adviceEl.innerHTML = msg.value.advice;
-                
-                // Đổi màu chữ nếu nội dung có từ "CẢNH BÁO"
-                if (msg.value.advice.includes("CẢNH BÁO")) {
-                    adviceEl.style.color = "#e74c3c"; // Đỏ
+
+                // If advice contains "WARNING", highlight red
+                if (msg.value.advice.toUpperCase().includes("WARNING")) {
+                    adviceEl.style.color = "#e74c3c";
                     adviceEl.style.fontWeight = "900";
                 } else {
-                    adviceEl.style.color = "#007bff"; // Xanh dương
+                    adviceEl.style.color = "#007bff";
                     adviceEl.style.fontWeight = "bold";
                 }
             }
         }
-        // --- THÔNG TIN HỆ THỐNG ---
+
+        // System info card
         else if (msg.page === "sysinfo") {
             const v = msg.value || {};
-            document.getElementById('sys-mode').innerText   = v.mode   || '-';
-            document.getElementById('sys-ssid').innerText   = v.ssid   || '-';
-            document.getElementById('sys-ip').innerText     = v.ip     || '-';
-            document.getElementById('sys-status').innerText = 
-                v.status === 'connected' ? 'Đã kết nối' : (v.status || 'Không rõ');
-        }
-        // --- PHẢN HỒI QUÊN WI-FI ---
-        else if (msg.page === "forget_wifi") {
-            if (msg.status === "ok") {
-                alert("ESP32 đã xóa cấu hình Wi-Fi, sẽ khởi động lại vào AP mode.");
+            document.getElementById('sys-mode').innerText = v.mode   || '-';
+            document.getElementById('sys-ssid').innerText = v.ssid   || '-';
+            document.getElementById('sys-ip').innerText   = v.ip     || '-';
+
+            let statusStr = '-';
+            if (v.status === 'connected') statusStr = 'Connected';
+            else if (v.status === 'disconnected') statusStr = 'Disconnected';
+            else if (v.status) statusStr = v.status;
+            document.getElementById('sys-status').innerText = statusStr;
+
+            // Handle Forget Wi-Fi button UX:
+            const forgetBtn = document.getElementById('btnForgetWifi');
+            const infoNote  = document.getElementById('info-note');
+            
+            if (forgetBtn) {
+                if (v.mode === 'STA') {
+                    // SHOW button if in STA mode
+                    forgetBtn.style.display = 'block'; 
+                    forgetBtn.disabled = false;
+                    
+                    if (infoNote) {
+                        infoNote.innerHTML =
+                          'Note: When you click <b>Forget Wi-Fi</b>, ESP32 will erase the saved STA Wi-Fi, ' +
+                          'restart and fall back to the default AP. You must connect to the AP again to reconfigure.';
+                    }
+                } else {
+                    // ❌ HIDE button if in AP mode (Change from disabled to display: none)
+                    forgetBtn.style.display = 'none';
+                    
+                    if (infoNote) {
+                        infoNote.innerHTML =
+                          'Note: ESP32 is currently running in AP-only mode. ' +
+                          'There is no saved STA Wi-Fi configuration to forget.';
+                    }
+                }
             }
         }
-        // --- CÁI KHÁC (có thể thêm sau) ---
+
+        // Forget Wi-Fi response
+        else if (msg.page === "forget_wifi") {
+            if (msg.status === "ok") {
+                alert("ESP32 erased STA Wi-Fi config and will restart in AP mode.");
+            }
+        }
+
     } catch (e) {
-        console.warn("Lỗi JSON:", e);
+        console.warn("JSON parse error:", e);
     }
 }
 
-
-// ==================== 4. XỬ LÝ HIỂN THỊ (Gauges + Chart) ====================
-
-// Khởi tạo 2 đồng hồ kim (JustGage)
+//    5. GAUGES + CHART   
 function createTempGauge(min, max, value) {
-    // Xóa đồng hồ cũ nếu có
-    document.getElementById("gauge_temp").innerHTML = ""; 
-    
+    document.getElementById("gauge_temp").innerHTML = "";
     gTemp = new JustGage({
         id: "gauge_temp",
         value: value,
@@ -243,7 +257,6 @@ function createTempGauge(min, max, value) {
     });
 }
 
-// Hàm tạo đồng hồ Độ ẩm
 function createHumiGauge() {
     gHumi = new JustGage({
         id: "gauge_humi",
@@ -261,35 +274,32 @@ function createHumiGauge() {
     });
 }
 
-// Sửa lại hàm init ban đầu
 function initGauges() {
-    createTempGauge(0, 100, 0); // Mặc định độ C: 0 - 100
+    createTempGauge(0, 100, 0);
     createHumiGauge();
 }
 
-// Khởi tạo biểu đồ đường (Chart.js)
 function initChart() {
     const ctx = document.getElementById('sensorChart').getContext('2d');
-    
-    // Cấu hình màu mặc định (cho Light mode)
-    Chart.defaults.color = '#666'; 
+
+    Chart.defaults.color = '#666';
     Chart.defaults.borderColor = '#ddd';
 
     chart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: [], // Thời gian
+            labels: [],
             datasets: [{
-                label: 'Nhiệt độ',
+                label: 'Temperature',
                 data: [],
-                borderColor: '#e74c3c', // Đỏ
+                borderColor: '#e74c3c',
                 backgroundColor: 'rgba(231, 76, 60, 0.2)',
                 tension: 0.4,
                 fill: true
             }, {
-                label: 'Độ ẩm',
+                label: 'Humidity',
                 data: [],
-                borderColor: '#3498db', // Xanh
+                borderColor: '#3498db',
                 backgroundColor: 'rgba(52, 152, 219, 0.2)',
                 tension: 0.4,
                 fill: true
@@ -298,43 +308,33 @@ function initChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: false, // Tắt animation để mượt realtime
+            animation: false,
             interaction: { mode: 'index', intersect: false },
             scales: {
-                x: { ticks: { maxTicksLimit: 10 } }, // Giới hạn nhãn trục X
+                x: { ticks: { maxTicksLimit: 10 } },
                 y: { beginAtZero: true }
             }
         }
     });
 }
 
-// Hàm cập nhật toàn bộ giao diện khi có dữ liệu mới
 function updateDashboard(tempC, hum) {
-    
-    // 1. Tính toán logic đơn vị (Độ C / Độ F)
-    let rawTemp;
-    if (isCelsius) {
-        rawTemp = tempC;
-    } else {
-        rawTemp = (tempC * 1.8) + 32;
-    }
+    let rawTemp = isCelsius ? tempC : (tempC * 1.8) + 32;
+    let displayTemp = parseFloat(rawTemp.toFixed(1));
+    let displayHum  = parseFloat(hum.toFixed(1));
 
-    let displayTemp = parseFloat(rawTemp.toFixed(1)); 
-    let displayHum = parseFloat(hum.toFixed(1));
-
-    // --- 🛡️ THÊM KIỂM TRA AN TOÀN ---
-    if (typeof gTemp !== 'undefined' && typeof gHumi !== 'undefined' && gTemp && gHumi) {
+    if (gTemp && gHumi) {
         try {
             gTemp.refresh(displayTemp);
             gHumi.refresh(displayHum);
-        } catch (e) { console.warn("Lỗi update Gauge:", e); }
+        } catch (e) { console.warn("Gauge update error:", e); }
     }
 
-    if (typeof chart !== 'undefined' && chart) {
+    if (chart) {
         try {
             const now = new Date().toLocaleTimeString();
             chart.data.labels.push(now);
-            chart.data.datasets[0].data.push(displayTemp); 
+            chart.data.datasets[0].data.push(displayTemp);
             chart.data.datasets[1].data.push(displayHum);
 
             if (chart.data.labels.length > 20) {
@@ -342,52 +342,39 @@ function updateDashboard(tempC, hum) {
                 chart.data.datasets.forEach(ds => ds.data.shift());
             }
             chart.update('none');
-        } catch (e) { console.warn("Lỗi update Chart:", e); }
+        } catch (e) { console.warn("Chart update error:", e); }
     }
 }
 
-// ==================== 5. CHỨC NĂNG ĐIỀU KHIỂN ====================
-
-// Đổi đơn vị °C / °F
+//    6. CONTROLS   
 function toggleUnit() {
-    // 1. Đảo trạng thái
     isCelsius = !isCelsius;
-    
-    const btn = document.getElementById('unitBtn');
+
+    const btn   = document.getElementById('unitBtn');
     const label = document.getElementById('label-temp');
-    
-    // Lấy giá trị hiện tại của đồng hồ để quy đổi
     let currentVal = parseFloat(gTemp.config.value);
 
     if (isCelsius) {
-        // ================== CHUYỂN VỀ ĐỘ C ==================
-        btn.innerText = "Đổi sang °F";
-        label.innerText = "🌡️ Nhiệt độ (°C)";
-        
-        let valC = (currentVal - 32) * 5/9;
+        btn.innerText = "Switch to °F";
+        label.innerText = "🌡️ Temperature (°C)";
+        let valC = (currentVal - 32) * 5 / 9;
         createTempGauge(0, 100, valC.toFixed(1));
-
         if (chart) {
-            chart.data.datasets[0].data = chart.data.datasets[0].data.map(v => (v - 32) * 5/9);
+            chart.data.datasets[0].data = chart.data.datasets[0].data.map(v => (v - 32) * 5 / 9);
             chart.update('none');
         }
-        
     } else {
-        // ================== CHUYỂN SANG ĐỘ F ==================
-        btn.innerText = "Đổi sang °C";
-        label.innerText = "🌡️ Nhiệt độ (°F)";
-        
-        let valF = (currentVal * 9/5) + 32;
+        btn.innerText = "Switch to °C";
+        label.innerText = "🌡️ Temperature (°F)";
+        let valF = (currentVal * 9 / 5) + 32;
         createTempGauge(32, 212, valF.toFixed(1));
-
         if (chart) {
-            chart.data.datasets[0].data = chart.data.datasets[0].data.map(v => (v * 9/5) + 32);
+            chart.data.datasets[0].data = chart.data.datasets[0].data.map(v => (v * 9 / 5) + 32);
             chart.update('none');
         }
     }
 }
 
-// Đổi Theme Sáng / Tối
 function toggleTheme() {
     const html = document.documentElement;
     const current = html.getAttribute('data-theme');
@@ -398,11 +385,10 @@ function toggleTheme() {
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
-    
-    const btn = document.getElementById('themeBtn');
-    btn.innerText = theme === 'dark' ? '☀️ Sáng' : '🌙 Tối';
 
-    // Cập nhật màu sắc cho biểu đồ (Chart.js cần set thủ công)
+    const btn = document.getElementById('themeBtn');
+    btn.innerText = theme === 'dark' ? '☀️ Light' : '🌙 Dark';
+
     if (chart) {
         const isDark = theme === 'dark';
         const textColor = isDark ? '#e0e0e0' : '#666';
@@ -417,13 +403,12 @@ function applyTheme(theme) {
     }
 }
 
-// Chuyển Tab (Home/Device/Settings)
+// Switch section (Home / Device / Info / Settings)
 function showSection(id, event) {
     document.querySelectorAll('.section').forEach(sec => sec.style.display = 'none');
 
     const el = document.getElementById(id);
-    el.style.display = (id === 'settings' || id === 'home') ? 'block' : 'block';
-    if (id === 'settings') el.style.display = 'flex';
+    el.style.display = (id === 'settings') ? 'flex' : 'block';
 
     if (id === 'info') {
         requestSysInfo();
@@ -433,8 +418,7 @@ function showSection(id, event) {
     if (event) event.currentTarget.classList.add('active');
 }
 
-
-// ==================== 6. QUẢN LÝ THIẾT BỊ (RELAY) ====================
+//    7. RELAY MANAGEMENT   
 function openAddRelayDialog() {
     document.getElementById('addRelayDialog').style.display = 'flex';
 }
@@ -445,25 +429,24 @@ function closeAddRelayDialog() {
 function saveRelay() {
     const name = document.getElementById('relayName').value.trim();
     const gpioVal = document.getElementById('relayGPIO').value.trim();
-    const gpio = parseInt(gpioVal); 
-    
+    const gpio = parseInt(gpioVal);
+
     if (!name || isNaN(gpio) || gpio < 0 || gpioVal === "") {
-        alert("Vui lòng nhập tên và chân GPIO hợp lệ (>= 0)!");
+        alert("Please enter a valid relay name and GPIO (>= 0).");
         return;
     }
 
-    relayList.push({ 
-        id: Date.now(), 
-        name: name, 
+    relayList.push({
+        id: Date.now(),
+        name: name,
         gpio: gpio,
-        state: false 
+        state: false
     });
 
     localStorage.setItem('myRelays', JSON.stringify(relayList));
-
     renderRelays();
     closeAddRelayDialog();
-    
+
     document.getElementById('relayName').value = "";
     document.getElementById('relayGPIO').value = "";
 }
@@ -477,12 +460,9 @@ function renderRelays() {
         card.className = 'device-card';
 
         let iconHtml = '<i class="fa-solid fa-bolt"></i>';
-        let noteText = '';
-
         if (r.name.includes("Blinky")) {
             iconHtml = '<i class="fa-solid fa-lightbulb"></i>';
-        } 
-        else if (r.name.includes("NeoPixel")) {
+        } else if (r.name.includes("NeoPixel")) {
             iconHtml = '<i class="fa-solid fa-palette"></i>';
         }
 
@@ -495,7 +475,6 @@ function renderRelays() {
             <p style="color:var(--text-sub); font-size:0.9rem">GPIO: ${r.gpio}</p>
 
             <p style="font-size:0.8rem; color: var(--primary); margin-top: 10px; margin-bottom: 15px; min-height: 30px;">
-                ${noteText}
             </p>
 
             <button class="${buttonClass}" onclick="toggleRelay(${r.id})">
@@ -542,7 +521,7 @@ function confirmDelete() {
     closeConfirmDelete();
 }
 
-// ==================== 7. XỬ LÝ FORM SETTINGS ====================
+//    8. SETTINGS FORM   
 document.getElementById("settingsForm").addEventListener("submit", function (e) {
     e.preventDefault();
 
@@ -564,5 +543,5 @@ document.getElementById("settingsForm").addEventListener("submit", function (e) 
     });
 
     Send_Data(settingsJSON);
-    alert("✅ Đã gửi cấu hình xuống thiết bị!");
+    alert("✅ Configuration sent to device!");
 });

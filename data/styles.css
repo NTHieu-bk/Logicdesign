@@ -1,23 +1,20 @@
-/* ==================== 1. BIẾN GIAO DIỆN (THEME VARIABLES) ==================== */
 :root {
-  /* --- GIAO DIỆN SÁNG (Mặc định) --- */
-  --bg-body: #eef2f7;           /* Nền tổng thể */
-  --bg-card: #ffffff;           /* Nền thẻ/khung */
-  --bg-sidebar: #2294F2;        /* Nền sidebar */
-  --text-main: #333333;         /* Chữ chính */
-  --text-sub: #666666;          /* Chữ phụ */
-  --text-sidebar: #ffffff;      /* Chữ trên sidebar */
-  --active-bg: #ffffff;         /* Nền menu đang chọn */
-  --active-text: #2294F2;       /* Chữ menu đang chọn */
+  --bg-body: #eef2f7;
+  --bg-card: #ffffff;
+  --bg-sidebar: #2294F2;
+  --text-main: #333333;
+  --text-sub: #666666;
+  --text-sidebar: #ffffff;
+  --active-bg: #ffffff;
+  --active-text: #2294F2;
   --shadow: 0 4px 20px rgba(0,0,0,0.08);
   --border: #e0e0e0;
   --input-bg: #f9f9f9;
-  --primary: #2294F2;           /* Màu chủ đạo (Xanh dương) */
-  --danger: #ff4757;            /* Màu đỏ */
-  --success: #2ecc71;           /* Màu xanh lá */
+  --primary: #2294F2;
+  --danger: #ff4757;
+  --success: #2ecc71;
 }
 
-/* --- GIAO DIỆN TỐI (Dark Mode) --- */
 [data-theme="dark"] {
   --bg-body: #121212;
   --bg-card: #1e1e1e;
@@ -35,7 +32,6 @@
   --success: #2ed573;
 }
 
-/* ==================== 2. CẤU TRÚC CHÍNH (LAYOUT) ==================== */
 body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -47,7 +43,6 @@ body {
   transition: background-color 0.3s, color 0.3s;
 }
 
-/* --- Sidebar --- */
 .sidebar {
   width: 260px;
   background-color: var(--bg-sidebar);
@@ -93,7 +88,6 @@ body {
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-/* --- Nội dung chính --- */
 .main-content {
   flex: 1;
   padding: 30px;
@@ -101,7 +95,6 @@ body {
   position: relative;
 }
 
-/* ==================== 3. HEADER & CONTROLS ==================== */
 .header-container {
   display: flex;
   justify-content: space-between;
@@ -144,7 +137,6 @@ body {
   color: #ff4757;
 }
 
-/* Thẻ thông tin hệ thống + thẻ AI */
 .info-card {
   background-color: var(--bg-card);
   border-radius: 12px;
@@ -190,7 +182,6 @@ body {
   color: var(--text-sub);
 }
 
-/* Lời khuyên hệ thống */
 .advice-card {
   background-color: var(--bg-card);
   border-radius: 12px;
@@ -202,7 +193,6 @@ body {
   gap: 12px;
 }
 
-/* Nút điều khiển góc phải */
 .control-buttons {
   display: flex;
   gap: 10px;
@@ -219,13 +209,15 @@ body {
   transition: 0.3s;
   box-shadow: var(--shadow);
 }
-
+.btn-ctrl:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .btn-ctrl:hover {
   border-color: var(--primary);
   color: var(--primary);
 }
 
-/* Nút điều khiển thiết bị */
 .btn-control {
     background-color: white;
     color: #007bff;
@@ -243,7 +235,6 @@ body {
     color: white;
 }
 
-/* ==================== 4. DASHBOARD (GAUGES + CHART) ==================== */
 .gauges-container {
   display: flex;
   flex-wrap: wrap;
@@ -274,7 +265,6 @@ body {
   margin: 0 auto;
 }
 
-/* Chart Wrapper */
 .chart-wrapper {
   background-color: var(--bg-card);
   border-radius: 20px;
@@ -293,7 +283,6 @@ body {
   width: 100%;
 }
 
-/* ==================== 5. TRANG THIẾT BỊ (RELAY) ==================== */
 .device-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -326,7 +315,6 @@ body {
 .device-card h3 { margin: 10px 0 5px 0; }
 .device-card p { margin: 0 0 15px 0; color: var(--text-sub); font-size: 0.9rem; }
 
-/* Nút toggle cũ (nếu còn dùng) */
 .toggle-btn {
   width: 100%;
   padding: 10px;
@@ -347,7 +335,6 @@ body {
   box-shadow: 0 4px 10px rgba(34, 148, 242, 0.4);
 }
 
-/* Nút "Thêm Thiết Bị" */
 .add-btn {
   padding: 10px 20px;
   background-color: var(--primary);
@@ -381,7 +368,6 @@ body {
 }
 .delete-icon:hover { opacity: 1; }
 
-/* Nút nổi thêm Relay (FAB) */
 .add-relay-btn {
   position: fixed;
   bottom: 40px;
@@ -400,7 +386,6 @@ body {
 }
 .add-relay-btn:hover { transform: scale(1.1); }
 
-/* ==================== 6. TRANG CÀI ĐẶT (SETTINGS) ==================== */
 .settings-section {
   display: flex;
   justify-content: center;
@@ -464,7 +449,6 @@ body {
 }
 .btn-save:hover { opacity: 0.9; transform: translateY(-1px); }
 
-/* ==================== 7. DIALOGS (MODAL) ==================== */
 .dialog-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.6);
@@ -512,7 +496,6 @@ body {
 
 .warning h3 { color: var(--danger); }
 
-/* ==================== 8. HIỆU ỨNG & RESPONSIVE ==================== */
 .fade-in { animation: fadeIn 0.5s ease; }
 
 @keyframes fadeIn {
@@ -539,7 +522,6 @@ body {
   100% { transform: translate(1px, -2px) rotate(-1deg); }
 }
 
-/* Mobile Responsive */
 @media (max-width: 768px) {
   body { flex-direction: column; height: auto; overflow: auto; }
   
@@ -564,8 +546,7 @@ body {
     margin: 0;
   }
   
-  .nav-item spa
-n { display: none; }
+  .nav-item span { display: none; }
   
   .main-content { padding: 15px; }
   .header-container { flex-direction: column; gap: 15px; align-items: flex-start; }

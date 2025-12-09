@@ -8,7 +8,6 @@
 DHT20 dht20;
 LiquidCrystal_I2C lcd(33, 16, 2);
 
-// --- CÁC HÀM PHỤ TRỢ (LOGIC CŨ) ---
 bool isCritical(float temperature, float humidity) {
     return (temperature > 35.0 || humidity > 80.0 || temperature < 10.0 || humidity < 20.0);
 }
@@ -59,9 +58,7 @@ void temp_humi_monitor(void *pvParameters) {
             
             lcd.setCursor(0, 1);
             lcd.print(glob_lcd_msg_line2); // Ví dụ: "ON (WEB)"
-            
-            // QUAN TRỌNG: Delay cứng 500ms để giữ dòng chữ này trên màn hình
-            // Sau 500ms này, vòng lặp quay lại thì (time - last) đã > 600 -> Tự nhảy xuống else
+
             vTaskDelay(pdMS_TO_TICKS(500)); 
 
         } 
