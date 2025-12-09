@@ -13,7 +13,6 @@ void setupWiFiEvents() {
 void WiFiEvent(WiFiEvent_t event) {
     switch (event) {
         case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-            Serial.println("\n--------------------------------------------------");
             Serial.println("⚠️ New Client connected to ESP32 AP!");
             Serial.println("   (Please open your browser)");
             
@@ -21,7 +20,6 @@ void WiFiEvent(WiFiEvent_t event) {
             Serial.print("   👉 AP URL  : http://"); 
             Serial.print(WiFi.softAPIP()); 
             Serial.println("/");
-            Serial.println("--------------------------------------------------\n");
             break;
 
         case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:

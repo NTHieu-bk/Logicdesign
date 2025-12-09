@@ -36,18 +36,19 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 {
     if (type == WS_EVT_CONNECT)
     {
-        // Fixed printf missing argument for %u
-        Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+        // Connection log removed as requested
+        // Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
     }
     else if (type == WS_EVT_DISCONNECT)
     {
-        Serial.printf("WebSocket client #%u disconnected\n", client->id());
+        // Disconnection log removed as requested
+        // Serial.printf("WebSocket client #%u disconnected\n", client->id());
     }
     else if (type == WS_EVT_DATA)
     {
         AwsFrameInfo *info = (AwsFrameInfo *)arg;
         
-        // Only handle Text messages
+        // Handle Text messages
         if (info->opcode == WS_TEXT)
         {
             String message = "";

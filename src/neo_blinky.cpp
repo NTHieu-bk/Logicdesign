@@ -14,62 +14,61 @@ void neo_blinky(void *pvParameters){
 
         if (xSemaphoreTake(xNeoControlMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             if (glob_neo_is_overridden) {
-                // NẾU CÓ LỆNH GHI ĐÈ:
+                // IF THERE IS AN OVERRIDE COMMAND:
                 run = false; 
 
                 if (glob_neo_override_state) {
-                    // Lệnh WEB: BẬT (ON) -> Sáng màu Trắng (Mặc định cho chế độ bật tay)
+                    // WEB Command: TURN ON -> Set to White (default for manual mode)
                     strip.setPixelColor(0, strip.Color(255, 255, 255)); 
                     strip.show();
                 } else {
-                    // Lệnh WEB: TẮT
+                    // WEB Command: TURN OFF
                     strip.clear();
                     strip.show();
                 }
             } else {
-                // Không có lệnh ghi đè -> Chạy tự động
+                // No override command -> Run automatically
                 run = true;
             }
             
             xSemaphoreGive(xNeoControlMutex);
         } else {
-             Serial.println("Task Neo: Không thể lấy Mutex Control!");
+             Serial.println("Task Neo: Unable to acquire Mutex Control!");
         }
-
 
         if (run) {
             
             float local_temp = 0;
             float local_humid = 0;
             
-            // Lấy dữ liệu cảm biến
+            // Get sensor data
             if (xSemaphoreTake(xDataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
                 local_temp = glob_temperature;
                 local_humid = glob_humidity;
                 xSemaphoreGive(xDataMutex);
             } else {
-                Serial.println("Task Neo: Không thể lấy Mutex Data!");
+                Serial.println("Task Neo: Unable to acquire Mutex Data!");
             }
 
-            uint32_t color = 0; // Biến lưu màu sắc
+            uint32_t color = 0; // Variable to store color
 
-            // --- VÙNG 1: NÓNG & ẨM ---
+            //   REGION 1: HOT & HUMID  
             if (local_temp > 35 && local_humid > 80) {
-                color = strip.Color(255, 0, 0);   // Đỏ
+                color = strip.Color(255, 0, 0);   // Red
             }
             else if (local_temp > 35 || local_humid > 80) {
-                color = strip.Color(255, 165, 0); // Cam
+                color = strip.Color(255, 165, 0); // Orange
             }
             else if (local_temp > 30 && local_humid > 60) {
-                color = strip.Color(255, 255, 0);  // Vàng
+                color = strip.Color(255, 255, 0);  // Yellow
             }
             else if (local_temp > 30 || local_humid > 60) {
                 color = strip.Color(173, 255, 47); // Chartreuse
             }
 
-            // --- VÙNG 2: LẠNH & KHÔ ---
+            //   REGION 2: COLD & DRY  
             else if (local_temp < 10 && local_humid < 20) {
-                color = strip.Color(0, 0, 255);   // Xanh dương
+                color = strip.Color(0, 0, 255);   // Blue
             }
             else if (local_temp < 10 || local_humid < 20) {
                 color = strip.Color(0, 255, 255); // Cyan
@@ -78,35 +77,35 @@ void neo_blinky(void *pvParameters){
                 color = strip.Color(75, 0, 130);  // Indigo
             }
             else if (local_temp < 20 || local_humid < 30) {
-                color = strip.Color(173, 216, 230); // Xanh nhạt
+                color = strip.Color(173, 216, 230); // Light blue
             }
 
-            // --- VÙNG 3: NÓNG & KHÔ ---
+            //   REGION 3: HOT & DRY  
             else if (local_temp > 30 && local_humid < 30) {
                 color = strip.Color(255, 0, 255); // Magenta
             }
             else if (local_temp > 35 && local_humid < 20) {
-                color = strip.Color(255, 40, 0); // Đỏ cam
+                color = strip.Color(255, 40, 0); // Orange Red
             }
 
-            // --- VÙNG 4: LẠNH & ẨM ---
+            //   REGION 4: COLD & HUMID  
             else if (local_temp < 20 && local_humid > 60) {
-                color = strip.Color(128, 0, 128); // Tím
+                color = strip.Color(128, 0, 128); // Purple
             }
             else if (local_temp < 10 && local_humid > 80) {
-                color = strip.Color(0, 120, 255); // Xanh da trời
+                color = strip.Color(0, 120, 255); // Sky blue
             }
 
-            // --- VÙNG 5: LÝ TƯỞNG ---
+            //   REGION 5: IDEAL  
             else {
-                color = strip.Color(0, 255, 0);   // Xanh lá
+                color = strip.Color(0, 255, 0);   // Green
             }
 
-            // Cập nhật màu lên đèn
+            // Update the color on the LED
             strip.setPixelColor(0, color);
             strip.show();
             
-            // Delay cho chế độ tự động (500ms)
+            // Delay for automatic mode (500ms)
             vTaskDelay(pdMS_TO_TICKS(500)); 
 
         } else {

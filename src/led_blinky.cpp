@@ -3,10 +3,10 @@
 void led_blinky(void *pvParameters){
     pinMode(LED_GPIO, OUTPUT);
   
-  while(1) {                        
+  while(1) {                         
     bool run = true; // flag
 
-        // Xin "chìa khóa" để đọc biến 
+        // Take the "key" to read the variable 
         if (xSemaphoreTake(xBlinkyControlMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             if (glob_blinky_is_overridden) {
                 digitalWrite(LED_GPIO, glob_blinky_override_state ? HIGH : LOW);
@@ -14,7 +14,7 @@ void led_blinky(void *pvParameters){
             } else {
                 run = true;
             }
-            xSemaphoreGive(xBlinkyControlMutex); // Trả "chìa khóa"
+            xSemaphoreGive(xBlinkyControlMutex); // Release the "key"
         }
 
         if (run) {
@@ -22,18 +22,17 @@ void led_blinky(void *pvParameters){
             float local_temp = 0;
             float local_humid = 0;
             
-            // Lấy dữ liệu cảm biến
+            // Get sensor data
             if (xSemaphoreTake(xDataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
                 local_temp = glob_temperature;
                 local_humid = glob_humidity;
                 xSemaphoreGive(xDataMutex);
             } else {
-                Serial.println("Task Monitor: Không thể lấy Mutex!");
+                Serial.println("Task Monitor: Unable to acquire Mutex!");
             }
 
-            // --- BẮT ĐẦU LOGIC NHÁY ĐÈN ---
             
-            // Cấp 1 - Nghiêm trọng nhất (Nóng & Ẩm)
+            // Level 1 - Most critical (Hot & Humid)
             if (local_temp > 35 && local_humid > 80) {
                 digitalWrite(LED_GPIO, HIGH);
                 vTaskDelay(pdMS_TO_TICKS(200));
@@ -41,27 +40,27 @@ void led_blinky(void *pvParameters){
                 vTaskDelay(pdMS_TO_TICKS(200));
             }
             else if (local_temp > 35 || local_humid > 80) {
-                // Cấp 2 - Cảnh báo Cực cao
+                // Level 2 - Extreme high warning
                 digitalWrite(LED_GPIO, HIGH);
                 vTaskDelay(pdMS_TO_TICKS(500));
                 digitalWrite(LED_GPIO, LOW);
                 vTaskDelay(pdMS_TO_TICKS(500));
             }
             else if (local_temp > 30 && local_humid > 60) {
-                // Cấp 3 - Nghiêm trọng Cao
+                // Level 3 - High critical
                 digitalWrite(LED_GPIO, HIGH);
                 vTaskDelay(pdMS_TO_TICKS(300));
                 digitalWrite(LED_GPIO, LOW);
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
             else if (local_temp > 30 || local_humid > 60) {
-                // Cấp 4 - Cảnh báo Cao
+                // Level 4 - High warning
                 digitalWrite(LED_GPIO, HIGH);
                 vTaskDelay(pdMS_TO_TICKS(800));
                 digitalWrite(LED_GPIO, LOW);
                 vTaskDelay(pdMS_TO_TICKS(800));
             }
-            // --- VÙNG 2: LẠNH & KHÔ ---
+            //    REGION 2: COLD & DRY   
             else if (local_temp < 10 && local_humid < 20) {
                 digitalWrite(LED_GPIO, HIGH);
                 vTaskDelay(pdMS_TO_TICKS(200));
@@ -86,7 +85,7 @@ void led_blinky(void *pvParameters){
                 digitalWrite(LED_GPIO, LOW);
                 vTaskDelay(pdMS_TO_TICKS(800));
             }
-            // --- VÙNG 3 & 4 ---
+            //    REGION 3 & 4   
             else if (local_temp > 30 && local_humid < 30) {
                 digitalWrite(LED_GPIO, HIGH);
                 vTaskDelay(pdMS_TO_TICKS(400));
@@ -99,7 +98,7 @@ void led_blinky(void *pvParameters){
                 digitalWrite(LED_GPIO, LOW);
                 vTaskDelay(pdMS_TO_TICKS(400));
             }
-            // --- VÙNG 5: LÝ TƯỞNG ---
+            //    REGION 5: IDEAL   
             else {
                 digitalWrite(LED_GPIO, HIGH);
                 vTaskDelay(pdMS_TO_TICKS(2000));
